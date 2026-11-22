@@ -17,6 +17,8 @@ class GoogleCalendar:
             if creds and creds.expired and creds.refresh_token:
                 creds.refresh(Request())
             else:
+                if not os.path.exists("credentials.json"):
+                    raise SystemExit("credentials.json not found. Download your Google OAuth Desktop client JSON into the repo root (see README Setup step 3).")
                 creds = InstalledAppFlow.from_client_secrets_file("credentials.json", SCOPES).run_local_server(port=0)
             with open("token.json", "w") as f:
                 f.write(creds.to_json())
