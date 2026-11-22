@@ -30,3 +30,29 @@ def test_provider_selection_and_key_required():
     with pytest.raises(RuntimeError):
         build_llm(Settings(_env_file=None, llm_provider="openai"))
     assert type(build_llm(Settings(_env_file=None, llm_provider="openai", llm_api_key="k"))).__name__ == "OpenAICompatLLM"
+
+
+async def test_second_provider_used_after_primary_provider_fails():
+    seen = []
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        body = json.loads(req.content)
+        seen.append((req.url.host, body["model"], req.headers["authorization"]))
+        if req.url.host == "api.groq.test":
+            return httpx.Response(429, json={"error": "rate limited"})
+        return httpx.Response(200, json={"choices": [{"message": {"content": '{"say": "from gemini"}'}}]})
+
+    st = Settings(_env_file=None, llm_provider="openai", llm_api_key="g", llm_base_url="https://api.groq.test/v1",
+                  llm_model="big", llm_fallback_model="small", llm2_api_key="k2", llm2_base_url="https://gem.test/v1beta/openai", llm2_model="gem")
+    out = await OpenAICompatLLM(st, transport=httpx.MockTransport(handler)).chat([{"role": "user", "content": "x"}])
+    assert parse_step(out).say == "from gemini"
+    assert [s[1] for s in seen if s[0] == "api.groq.test"][0] == "big" and "small" in [s[1] for s in seen]
+    assert seen[-1] == ("gem.test", "gem", "Bearer k2")
+
+
+async def test_no_second_provider_configured_raises():
+    import pytest
+    st = Settings(_env_file=None, llm_provider="openai", llm_api_key="g", llm_base_url="https://api.groq.test/v1", llm2_api_key="")
+    llm = OpenAICompatLLM(st, transport=httpx.MockTransport(lambda r: httpx.Response(500)))
+    with pytest.raises(Exception):
+        await llm.chat([{"role": "user", "content": "x"}])

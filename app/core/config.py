@@ -16,6 +16,10 @@ class Settings(BaseSettings):
     llm_provider: Literal["ollama", "openai"] = "ollama"
     llm_base_url: str = "https://api.groq.com/openai/v1"
     llm_api_key: str = ""
+    # Optional second provider, tried only after the primary provider's models fail (e.g. Groq rate limit -> Gemini)
+    llm2_base_url: str = "https://generativelanguage.googleapis.com/v1beta/openai"
+    llm2_api_key: str = ""
+    llm2_model: str = "gemini-3.5-flash-lite"
     ollama_url: str = "http://localhost:11434"
     llm_model: str = "qwen2.5:7b-instruct"
     llm_fallback_model: str = "qwen2.5:3b"

@@ -69,13 +69,12 @@ class OpenAICompatLLM:
         if not st.llm_api_key and transport is None:
             raise RuntimeError("LLM_API_KEY is required when LLM_PROVIDER=openai")
 
-    def _client(self, timeout: float) -> httpx.AsyncClient:
-        return httpx.AsyncClient(timeout=timeout, transport=self.transport,
-                                 headers={"Authorization": f"Bearer {self.st.llm_api_key}"})
+    def _client(self, timeout: float, key: str) -> httpx.AsyncClient:
+        return httpx.AsyncClient(timeout=timeout, transport=self.transport, headers={"Authorization": f"Bearer {key}"})
 
-    async def _once(self, model: str, messages: list[dict]) -> str:
-        async with self._client(self.st.llm_timeout_s) as c:
-            r = await c.post(f"{self.st.llm_base_url.rstrip('/')}/chat/completions", json={
+    async def _once(self, model: str, messages: list[dict], base: str | None = None, key: str | None = None) -> str:
+        async with self._client(self.st.llm_timeout_s, key or self.st.llm_api_key) as c:
+            r = await c.post(f"{(base or self.st.llm_base_url).rstrip('/')}/chat/completions", json={
                 "model": model, "messages": messages, "temperature": 0.2, "max_tokens": 300,
                 "response_format": {"type": "json_object"}})
             r.raise_for_status()
@@ -87,8 +86,15 @@ class OpenAICompatLLM:
                                          timeout=self.st.llm_timeout_s + 5, retries=1, breaker=self.breaker)
         except Exception as e:  # noqa: BLE001
             log.warning("primary model %s failed (%r); trying fallback %s", self.st.llm_model, e, self.st.llm_fallback_model)
+        try:
             return await call_with_retry(lambda: self._once(self.st.llm_fallback_model, messages),
                                          timeout=self.st.llm_timeout_s + 5, retries=1)
+        except Exception as e:  # noqa: BLE001
+            if not self.st.llm2_api_key:
+                raise
+            log.warning("fallback model %s failed (%r); trying second provider %s", self.st.llm_fallback_model, e, self.st.llm2_model)
+        return await call_with_retry(lambda: self._once(self.st.llm2_model, messages, self.st.llm2_base_url, self.st.llm2_api_key),
+                                     timeout=self.st.llm_timeout_s + 5, retries=1)
 
     async def alive(self) -> bool:
         return bool(self.st.llm_api_key)  # don't spend quota on health checks
