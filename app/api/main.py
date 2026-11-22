@@ -2,10 +2,13 @@ import logging
 from contextlib import asynccontextmanager
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from pathlib import Path
+
 from fastapi import Depends, FastAPI, HTTPException
+from fastapi.responses import FileResponse
 from sqlmodel import select
 
-from app.agent.llm import LlamaGuard, OllamaLLM
+from app.agent.llm import LlamaGuard, build_llm
 from app.agent.session import Deps
 from app.api.ws import router as ws_router
 from app.core.config import Settings, get_settings
@@ -28,11 +31,13 @@ def create_app(st: Settings | None = None, deps: Deps | None = None, voice=None)
     async def lifespan(app: FastAPI):
         if deps is None:
             db = repo.Database(st.database_url)
-            app.state.deps = Deps(st, db, OllamaLLM(st), LlamaGuard(st), build_calendar(st),
+            app.state.deps = Deps(st, db, build_llm(st), LlamaGuard(st), build_calendar(st),
                                   NtfyNotifier(st.ntfy_url, st.ntfy_topic), RateLimiter(st.rl_turns_per_min))
         else:
             app.state.deps = deps
         repo.ensure_owner(app.state.deps.db, st)
+        if not st.call_token:
+            log.warning("CALL_TOKEN is empty: anyone who can reach this server can start calls. Set it before exposing it (tunnel/hosting).")
         app.state.connect_limiter = RateLimiter(st.rl_connect_per_min)
         if voice is not None:
             app.state.voice = voice or None  # voice=False forces text-only mode
@@ -47,6 +52,10 @@ def create_app(st: Settings | None = None, deps: Deps | None = None, voice=None)
 
     app = FastAPI(title="Gatekeeper", lifespan=lifespan)
     app.include_router(ws_router)
+
+    @app.get("/", include_in_schema=False)
+    def web_client():  # browser client: works on laptop and phone (mic/speech handled by the browser)
+        return FileResponse(Path(__file__).resolve().parent.parent / "web" / "index.html")
 
     @app.get("/healthz")
     async def healthz():

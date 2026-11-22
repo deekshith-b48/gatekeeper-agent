@@ -11,13 +11,17 @@ class Settings(BaseSettings):
     admin_token: str = ""  # empty = admin REST disabled
     call_token: str = ""  # empty = calls open (set it when exposed beyond localhost)
 
-    # LLM / guard (Ollama)
+    # LLM / guard. provider "ollama" (local, ~2-5 GB of models) or "openai" (any OpenAI-compatible API:
+    # Groq, Google Gemini, OpenRouter... free tiers, nothing stored locally)
+    llm_provider: Literal["ollama", "openai"] = "ollama"
+    llm_base_url: str = "https://api.groq.com/openai/v1"
+    llm_api_key: str = ""
     ollama_url: str = "http://localhost:11434"
     llm_model: str = "qwen2.5:7b-instruct"
     llm_fallback_model: str = "qwen2.5:3b"
     llm_timeout_s: float = 60.0
     guard_enabled: bool = True
-    guard_model: str = "llama-guard3:1b"
+    guard_model: str = "llama-guard3:1b"  # for provider=openai, set to a hosted guard model or leave GUARD_ENABLED=false (rules still run)
     max_input_chars: int = 1500
 
     # Voice

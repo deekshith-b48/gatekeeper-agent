@@ -32,3 +32,10 @@ def test_unknown_owner_and_admin_endpoints_locked(tmp_path):
         except Exception as e:  # noqa: BLE001
             assert "AssertionError" not in type(e).__name__
         assert c.get("/api/conversations").status_code == 403  # ADMIN_TOKEN unset => disabled
+
+
+def test_web_client_served(tmp_path):
+    deps = make_deps(tmp_path, ScriptedLLM([{"say": "x"}]))
+    with TestClient(create_app(deps.st, deps, voice=False)) as c:
+        r = c.get("/")
+        assert r.status_code == 200 and "Gatekeeper" in r.text and "webkitSpeechRecognition" in r.text

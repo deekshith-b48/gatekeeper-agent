@@ -61,6 +61,43 @@ class OllamaLLM:
             return False
 
 
+class OpenAICompatLLM:
+    """Any OpenAI-compatible chat API (Groq, Gemini's OpenAI endpoint, OpenRouter, ...). JSON mode, same planner contract."""
+
+    def __init__(self, st: Settings, transport: httpx.AsyncBaseTransport | None = None):
+        self.st, self.transport, self.breaker = st, transport, CircuitBreaker(3, 20)
+        if not st.llm_api_key and transport is None:
+            raise RuntimeError("LLM_API_KEY is required when LLM_PROVIDER=openai")
+
+    def _client(self, timeout: float) -> httpx.AsyncClient:
+        return httpx.AsyncClient(timeout=timeout, transport=self.transport,
+                                 headers={"Authorization": f"Bearer {self.st.llm_api_key}"})
+
+    async def _once(self, model: str, messages: list[dict]) -> str:
+        async with self._client(self.st.llm_timeout_s) as c:
+            r = await c.post(f"{self.st.llm_base_url.rstrip('/')}/chat/completions", json={
+                "model": model, "messages": messages, "temperature": 0.2, "max_tokens": 300,
+                "response_format": {"type": "json_object"}})
+            r.raise_for_status()
+            return r.json()["choices"][0]["message"]["content"]
+
+    async def chat(self, messages: list[dict]) -> str:
+        try:
+            return await call_with_retry(lambda: self._once(self.st.llm_model, messages),
+                                         timeout=self.st.llm_timeout_s + 5, retries=1, breaker=self.breaker)
+        except Exception as e:  # noqa: BLE001
+            log.warning("primary model %s failed (%r); trying fallback %s", self.st.llm_model, e, self.st.llm_fallback_model)
+            return await call_with_retry(lambda: self._once(self.st.llm_fallback_model, messages),
+                                         timeout=self.st.llm_timeout_s + 5, retries=1)
+
+    async def alive(self) -> bool:
+        return bool(self.st.llm_api_key)  # don't spend quota on health checks
+
+
+def build_llm(st: Settings):
+    return OpenAICompatLLM(st) if st.llm_provider == "openai" else OllamaLLM(st)
+
+
 def parse_step(raw: str) -> AgentStep:
     """Strict parse; tolerates a markdown fence around the JSON, nothing else."""
     s = raw.strip()
@@ -81,6 +118,13 @@ class LlamaGuard:
 
         async def _go():
             async with httpx.AsyncClient(timeout=20) as c:
+                if self.st.llm_provider == "openai":
+                    r = await c.post(f"{self.st.llm_base_url.rstrip('/')}/chat/completions",
+                                     headers={"Authorization": f"Bearer {self.st.llm_api_key}"},
+                                     json={"model": self.st.guard_model, "temperature": 0,
+                                           "messages": [{"role": "user", "content": text}]})
+                    r.raise_for_status()
+                    return r.json()["choices"][0]["message"]["content"].strip().lower()
                 r = await c.post(f"{self.st.ollama_url}/api/chat", json={
                     "model": self.st.guard_model, "stream": False,
                     "messages": [{"role": "user", "content": text}], "options": {"temperature": 0}})

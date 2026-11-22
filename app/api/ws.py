@@ -21,7 +21,7 @@ async def _send(ws: WebSocket, ev: dict) -> None:
 
 
 @router.websocket("/ws/call/{owner_handle}")
-async def call(ws: WebSocket, owner_handle: str, caller_id: str = "", token: str = ""):
+async def call(ws: WebSocket, owner_handle: str, caller_id: str = "", token: str = "", server_tts: int = 1):
     app = ws.app.state
     d, st = app.deps, app.deps.st
     ip = ws.client.host if ws.client else "?"
@@ -43,7 +43,7 @@ async def call(ws: WebSocket, owner_handle: str, caller_id: str = "", token: str
     try:
         await _send(ws, {"type": "session_started", "conversation_id": conv.id, "voice": app.voice is not None})
         r = await sess.open()
-        await _reply(ws, app, r)
+        await _reply(ws, app, server_tts, r)
 
         det = app.voice.new_detector() if app.voice else None
         last_partial = 0.0
@@ -61,7 +61,7 @@ async def call(ws: WebSocket, owner_handle: str, caller_id: str = "", token: str
                     break
                 if j.get("type") == "text":  # typed turn (same pipeline minus STT/TTS)
                     await _send(ws, {"type": "transcript_final", "text": str(j.get("text", ""))[:2000], "lang": ""})
-                    await _reply(ws, app, await sess.handle_text(str(j.get("text", ""))))
+                    await _reply(ws, app, server_tts, await sess.handle_text(str(j.get("text", ""))))
                 continue
             pcm = msg.get("bytes")
             if not pcm or det is None:
@@ -87,7 +87,7 @@ async def call(ws: WebSocket, owner_handle: str, caller_id: str = "", token: str
                     continue  # noise / silence: don't burn an LLM turn
                 r = await sess.handle_text(text, audio_ms=int(len(utt) / 16))
                 r.timings.update(stt_ms=stt_ms, e2e_before_tts_ms=int((time.monotonic() - t0) * 1000))
-                await _reply(ws, app, r)
+                await _reply(ws, app, server_tts, r)
     except WebSocketDisconnect:
         pass
     except Exception:  # noqa: BLE001
@@ -101,14 +101,14 @@ async def call(ws: WebSocket, owner_handle: str, caller_id: str = "", token: str
         sess.close(status)
 
 
-async def _reply(ws: WebSocket, app, r) -> None:
+async def _reply(ws: WebSocket, app, server_tts: int, r) -> None:
     for e in r.events:
         await _send(ws, e)
     if not r.say:
         return
     timings = dict(r.timings)
     audio = None
-    if app.voice and app.voice.tts:
+    if server_tts and app.voice and app.voice.tts:  # browser clients speak for themselves (server_tts=0)
         try:
             async with _cpu:
                 audio = await asyncio.to_thread(app.voice.tts.synthesize, r.say)

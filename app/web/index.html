@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Gatekeeper</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --ink:#15171a; --mute:#6b7280; --acc:#2563eb; --ok:#16a34a; --bad:#dc2626; --line:#e5e7eb; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0e1013; --card:#171a1f; --ink:#eceef1; --mute:#9aa3af; --line:#272b32; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.45 system-ui,-apple-system,sans-serif; min-height:100dvh; display:flex; flex-direction:column; }
+  header { padding:14px 16px; display:flex; align-items:center; gap:10px; border-bottom:1px solid var(--line); background:var(--card); }
+  header h1 { font-size:17px; margin:0; flex:1; }
+  #status { font-size:13px; color:var(--mute); }
+  #log { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px; }
+  .msg { max-width:85%; padding:10px 14px; border-radius:16px; background:var(--card); border:1px solid var(--line); }
+  .you { align-self:flex-end; background:var(--acc); color:#fff; border-color:var(--acc); }
+  .note { align-self:center; font-size:13px; color:var(--mute); text-align:center; }
+  .slots { align-self:flex-start; display:flex; flex-wrap:wrap; gap:8px; }
+  .slot { border:1px solid var(--line); background:var(--card); padding:6px 12px; border-radius:999px; font-size:14px; }
+  .booked { align-self:center; background:var(--ok); color:#fff; padding:10px 16px; border-radius:12px; font-weight:600; }
+  .warn { align-self:center; color:var(--bad); font-size:13px; }
+  footer { padding:12px 16px calc(12px + env(safe-area-inset-bottom)); background:var(--card); border-top:1px solid var(--line); display:flex; gap:8px; align-items:center; }
+  input[type=text] { flex:1; min-width:0; padding:12px 14px; border-radius:12px; border:1px solid var(--line); background:var(--bg); color:var(--ink); font-size:16px; }
+  button { border:0; border-radius:12px; padding:12px 16px; font-size:16px; background:var(--acc); color:#fff; }
+  button.sec { background:var(--card); color:var(--ink); border:1px solid var(--line); }
+  button.live { background:var(--bad); }
+  #setup { padding:16px; display:flex; flex-direction:column; gap:10px; }
+</style>
+</head>
+<body>
+<header><h1>Gatekeeper</h1><span id="status">not connected</span></header>
+<div id="setup">
+  <div class="note" style="text-align:left">Leave a message or book time with the owner. Your browser does the speech recognition and speaking, so nothing is installed.</div>
+  <input type="text" id="who" placeholder="Owner handle" value="owner" autocomplete="off">
+  <input type="text" id="tok" placeholder="Access token (if required)" autocomplete="off">
+  <button id="start">Start call</button>
+</div>
+<div id="log" hidden></div>
+<footer hidden id="bar">
+  <button id="mic" class="sec" title="Tap to talk">🎤</button>
+  <input type="text" id="txt" placeholder="…or type here" autocomplete="off">
+  <button id="send">Send</button>
+  <button id="end" class="sec">End</button>
+</footer>
+<script>
+const $ = (id) => document.getElementById(id);
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const q = new URLSearchParams(location.search);
+if (q.get("owner")) $("who").value = q.get("owner");
+if (q.get("token")) $("tok").value = q.get("token");
+let ws, rec, listening = false, speaking = false, wantMic = !!SR, voiceName = null;
+const callerId = (() => { try { return localStorage.gkid || (localStorage.gkid = "web-" + crypto.randomUUID()); } catch { return "web-" + Math.random().toString(36).slice(2); } })();
+
+function add(cls, text) {
+  const d = document.createElement("div"); d.className = cls; d.textContent = text;
+  $("log").appendChild(d); $("log").scrollTop = 1e9; return d;
+}
+function speak(text) {
+  if (!("speechSynthesis" in window)) return;
+  stopListening(); speaking = true;
+  const u = new SpeechSynthesisUtterance(text); u.rate = 1.0;
+  u.onend = u.onerror = () => { speaking = false; if (wantMic) startListening(); };
+  speechSynthesis.cancel(); speechSynthesis.speak(u);
+}
+function startListening() {
+  if (!SR || listening || speaking || !ws || ws.readyState !== 1) return;
+  rec = new SR(); rec.lang = navigator.language || "en-US"; rec.interimResults = true; rec.continuous = false;
+  let last = null;
+  rec.onresult = (e) => {
+    const r = e.results[e.results.length - 1]; last = r[0].transcript;
+    $("status").textContent = r.isFinal ? "thinking…" : "listening… " + last;
+    if (r.isFinal) { send(last); last = null; }
+  };
+  rec.onend = () => { listening = false; $("mic").classList.remove("live"); if (wantMic && !speaking && $("status").textContent.startsWith("listening")) startListening(); };
+  rec.onerror = (e) => { listening = false; if (e.error === "not-allowed") { wantMic = false; add("warn", "Microphone blocked. Allow it in the browser, or type instead."); } };
+  try { rec.start(); listening = true; $("mic").classList.add("live"); $("status").textContent = "listening…"; } catch {}
+}
+function stopListening() { if (rec && listening) { try { rec.abort(); } catch {} } listening = false; $("mic").classList.remove("live"); }
+function send(text) {
+  text = (text || "").trim(); if (!text || !ws || ws.readyState !== 1) return;
+  ws.send(JSON.stringify({ type: "text", text }));
+}
+function connect() {
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  const tok = $("tok").value.trim();
+  const url = `${proto}://${location.host}/ws/call/${encodeURIComponent($("who").value.trim() || "owner")}?server_tts=0&caller_id=${encodeURIComponent(callerId)}` + (tok ? `&token=${encodeURIComponent(tok)}` : "");
+  ws = new WebSocket(url);
+  $("setup").hidden = true; $("log").hidden = false; $("bar").hidden = false; $("status").textContent = "connecting…";
+  ws.onopen = () => { $("status").textContent = "connected"; };
+  ws.onclose = (e) => { stopListening(); $("status").textContent = e.code === 4401 ? "bad token" : e.code === 4404 ? "unknown owner" : e.code === 4429 ? "slow down" : "call ended"; };
+  ws.onmessage = (m) => {
+    if (typeof m.data !== "string") return;
+    const e = JSON.parse(m.data);
+    if (e.type === "agent_text") { add("msg", e.text); speak(e.text); }
+    else if (e.type === "transcript_final") add("msg you", e.text);
+    else if (e.type === "slots_offered") { const d = add("slots", ""); e.slots.forEach((s) => { const b = document.createElement("span"); b.className = "slot"; b.textContent = s.when; d.appendChild(b); }); }
+    else if (e.type === "booking_confirmed") add("booked", `Booked: ${e.when}${e.invite_sent ? " · invite sent" : ""}`);
+    else if (e.type === "guard_flagged") add("note", "That request can't be handled by this assistant.");
+    else if (e.type === "error") add("warn", e.message || e.code);
+  };
+}
+$("start").onclick = () => { connect(); if (!SR) add("note", "Voice input isn't supported in this browser (try Chrome or Safari). You can type instead."); };
+$("send").onclick = () => { send($("txt").value); $("txt").value = ""; };
+$("txt").onkeydown = (e) => { if (e.key === "Enter") $("send").onclick(); };
+$("mic").onclick = () => { if (listening) { wantMic = false; stopListening(); } else { wantMic = true; startListening(); } };
+$("end").onclick = () => { wantMic = false; stopListening(); speechSynthesis.cancel(); try { ws.send(JSON.stringify({ type: "hangup" })); ws.close(); } catch {} };
+</script>
+</body>
+</html>

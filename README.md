@@ -11,7 +11,37 @@ browser/CLI mic ──16kHz PCM──► /ws/call/{owner}
    owner alerts → ntfy (URGENT for VIP contact ids or 2+ contacts in 7 days)
 ```
 
-## Run it
+## Light mode: small disk, works on phone and laptop (recommended)
+No Ollama, no Whisper/Piper/torch (those were ~1.3 GB here plus 2-6 GB of models). The **browser** does speech-to-text and text-to-speech; the LLM is a free hosted API.
+
+| | Light mode | Local mode |
+|---|---|---|
+| Disk | ~250 MB venv, 0 GB models | 1.3 GB venv + 2 to 6 GB models |
+| LLM | free API key (Groq / Gemini / OpenRouter) via `LLM_PROVIDER=openai` | Ollama (`LLM_PROVIDER=ollama`) |
+| Speech | browser Web Speech API (Chrome, Edge, Safari) | faster-whisper + Piper on the server |
+| Privacy | caller text goes to the API provider; check their free-tier data policy | everything stays on your machine |
+
+```bash
+python3.11 -m venv .venv && .venv/bin/pip install -e .          # no [voice] extra
+cp .env.example .env     # set LLM_API_KEY, OWNER_*, CALL_TOKEN, NTFY_TOPIC
+.venv/bin/python scripts/google_auth.py                           # once (needs credentials.json); writes token.json
+.venv/bin/python -m app.api.main                                  # open http://localhost:8000 on the laptop
+```
+**Phone:** mobile browsers only allow the microphone on HTTPS, so expose the laptop with a free tunnel (set `CALL_TOKEN` first):
+```bash
+brew install cloudflared && cloudflared tunnel --url http://localhost:8000   # prints https://<random>.trycloudflare.com
+```
+Open that URL on your phone (add `?token=<CALL_TOKEN>`; works as an installable home-screen page). Tailscale (`tailscale serve`) is the private alternative.
+Phone call quality depends on the browser: Chrome on Android is best; iOS Safari supports speech recognition but is less reliable, and typing always works.
+To keep it running without your laptop, deploy the same container to any free host (token.json goes in as a secret); free tiers sleep when idle, so the first call may be slow.
+
+**Free disk, if you already installed the heavy stuff:**
+```bash
+.venv/bin/pip uninstall -y torch torchaudio faster-whisper silero-vad piper-tts onnxruntime ctranslate2   # ~700 MB
+rm -rf voices ~/.cache/huggingface/hub/*whisper*                                                          # ~200 MB
+```
+
+## Run it (local mode: server-side voice + Ollama)
 ```bash
 cp .env.example .env            # set OWNER_*, NTFY_TOPIC, ...
 python3.11 -m venv .venv && .venv/bin/pip install -e ".[cli]" && .venv/bin/python scripts/google_auth.py   # once, on a machine with a browser (needs credentials.json)
