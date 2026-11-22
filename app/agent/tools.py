@@ -31,6 +31,7 @@ def clean(s: str, n: int) -> str:
 NAME_RX = re.compile(r"^[\w .,'&()\-]{1,60}$")
 TITLE_RX = re.compile(r"^[\w .,'&()\[\]\-/]{1,100}$")
 MAX_PER_CALL, MAX_PER_DAY = 2, 3
+_push_tasks: set = set()  # keep references so background pushes are not garbage-collected
 _book_lock = asyncio.Lock()  # check-then-insert must be atomic or two callers can take the same slot
 
 
@@ -117,7 +118,7 @@ class RecallArgs(_Strict):
 
 
 # ---------- alerts ----------
-async def alert_owner(ctx: ToolContext, kind: str, summary: str) -> None:
+async def alert_owner(ctx: ToolContext, kind: str, summary: str):
     """Internal (not a model tool). URGENT if VIP (verified contact) or 2+ contacts in 7 days.
     Always stored in the inbox. Pushed immediately unless focus mode is ON and the alert is not urgent."""
     n = repo.contacts_last_7d(ctx.db, ctx.caller.id)
@@ -129,11 +130,18 @@ async def alert_owner(ctx: ToolContext, kind: str, summary: str) -> None:
     alert = repo.add_alert(ctx.db, ctx.owner.id, ctx.conversation_id, ctx.caller.id, kind, text, urgent, delivered=False)
     bus.publish({"type": "alert", "kind": kind, "urgent": urgent, "held": hold, "summary": text[:160]})
     if hold:
-        return  # stays undelivered: goes out in the focus-end digest
-    ok = await ctx.notifier.send(f"{'URGENT: ' if urgent else ''}Gatekeeper {kind}", text, urgent=urgent,
-                                 click=f"{ctx.st.public_url.rstrip('/')}/inbox" if ctx.st.public_url else "")
-    if ok:
-        repo.mark_delivered(ctx.db, [alert.id])  # a failed push stays undelivered and is retried in the next digest
+        return None  # stays undelivered: goes out in the focus-end digest
+
+    async def push():
+        ok = await ctx.notifier.send(f"{'URGENT: ' if urgent else ''}Gatekeeper {kind}", text, urgent=urgent,
+                                     click=f"{ctx.st.public_url.rstrip('/')}/inbox" if ctx.st.public_url else "")
+        if ok:
+            repo.mark_delivered(ctx.db, [alert.id])  # a failed push stays undelivered and is retried in the next digest
+
+    task = asyncio.create_task(push())  # the caller must not wait on the push: it would add ~1 s to the booking turn
+    _push_tasks.add(task)
+    task.add_done_callback(_push_tasks.discard)
+    return task
 
 
 async def calendar_down(ctx: ToolContext, wanted: str) -> dict:

@@ -107,8 +107,8 @@ class OpenAICompatLLM:
                 except Exception:  # noqa: BLE001
                     pass
                 if r.status_code == 429:  # go straight to the next model; remember how long this one wants us to wait
-                    m = re.search(r"try again in ([\d.]+)(ms|s)", r.text)
-                    raise RateLimited((float(m.group(1)) / (1000 if m.group(2) == "ms" else 1)) if m else 30.0)
+                    m = re.search(r"try again in (?:(\d+)m)?([\d.]+)(ms|s)", r.text)  # e.g. "4m7.5s", "0.3s", "250ms"
+                    raise RateLimited(((int(m.group(1) or 0) * 60) + float(m.group(2)) / (1000 if m.group(3) == "ms" else 1)) if m else 30.0)
                 if r.status_code < 500:
                     raise PermanentLLMError(f"HTTP {r.status_code}")
                 r.raise_for_status()

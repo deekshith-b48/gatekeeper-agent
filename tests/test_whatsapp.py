@@ -106,7 +106,9 @@ async def test_verified_vip_number_gets_urgent_alert_and_spoken_claims_do_not(tm
     for contact in ("+910000000001", "+910000000002"):
         caller, conv = repo.start_conversation(deps.db, owner, contact, channel="whatsapp")
         repo.update_caller(deps.db, caller.id, name="manager")  # both CLAIM to be the manager
-        await alert_owner(ToolContext(deps.st, deps.db, owner, caller, conv.id, InMemoryCalendar(), rec), "message", "hi")
+        _t = await alert_owner(ToolContext(deps.st, deps.db, owner, caller, conv.id, InMemoryCalendar(), rec), "message", "hi")
+        if _t:
+            await _t
     assert [m["urgent"] for m in rec.sent] == [True, False]
 
 

@@ -2,8 +2,8 @@
  {
   "case": "A. bad calendar token: friendly 'take a message' reply, no stack trace",
   "status": "PASS",
-  "detail": "I\u2019m sorry, the calendar is currently unreachable, but I\u2019ve saved a note for Deekshith and he\u2019ll get back to you soon. Would you like to leave a brief message?",
-  "latency_s": 6.04
+  "detail": "I\u2019m sorry, Deekshith\u2019s calendar is currently unreachable. I\u2019ve saved your message and he\u2019ll get back to you.",
+  "latency_s": 5.74
  },
  {
   "case": "A. message saved to memory",
@@ -20,7 +20,7 @@
  {
   "case": "A. conversation still alive afterwards",
   "status": "PASS",
-  "detail": "Your message has been saved and Deekshith will see it soon. Have a great day!",
+  "detail": "Got it, I\u2019ve noted that Dev called. I\u2019ll let Deekshith know.",
   "latency_s": null
  },
  {
@@ -32,8 +32,8 @@
  {
   "case": "C. notify channel dead: booking still succeeds",
   "status": "PASS",
-  "detail": "Your hiring discussion is booked for Monday 23 November at 12:00. Let me know if you\u2019d like an email invitation.",
-  "latency_s": 5.18
+  "detail": "Your meeting is booked for Monday 23 November at 12:00. Do you want me to send an invite to your email?",
+  "latency_s": 10.03
  },
  {
   "case": "C. failure logged, alert kept undelivered for the next digest",
@@ -86,20 +86,20 @@
  {
   "case": "E. same caller can reconnect and chat (browser shows 'Chat again')",
   "status": "PASS",
-  "detail": "Sure, could you tell me your name and what you'd like to discuss?",
+  "detail": "Hi, could you please tell me your name and what you would like to discuss?",
   "latency_s": null
  },
  {
   "case": "B. LLM up: normal reply",
   "status": "PASS",
-  "detail": "Sure, Mira. What would you like to discuss?",
-  "latency_s": 0.89
+  "detail": "Sorry, no slots today. How about tomorrow or the day after?",
+  "latency_s": 22.47
  },
  {
   "case": "B. LLM dies mid-conversation: friendly fallback, no stack trace",
   "status": "PASS",
   "detail": "I'm having trouble right now. I'll take a message and he'll get back to you.",
-  "latency_s": 2.02
+  "latency_s": 1.03
  },
  {
   "case": "B. owner alerted that the agent is down",
@@ -110,8 +110,8 @@
  {
   "case": "B. app recovers by itself when the LLM returns (same conversation)",
   "status": "PASS",
-  "detail": "Sure, Mira. I have slots at 12:00, 12:30 or 1:00 PM on Monday. Which one works for you?",
-  "latency_s": 2.58
+  "detail": "Here are some options for tomorrow afternoon: 12:00, 12:30, or 13:00. Which one works for you?",
+  "latency_s": 2.35
  },
  {
   "case": "B. no crash during outage",

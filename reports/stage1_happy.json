@@ -2,20 +2,20 @@
  {
   "case": "greeting received",
   "status": "PASS",
-  "detail": "Hello, Deekshith is not available right now. May I have your name and the reason for your call?",
+  "detail": "Hello, this is Deekshith's assistant. He\u2019s not available right now. May I know who\u2019s calling and what you\u2019d like to discuss?",
   "latency_s": null
  },
  {
   "case": "turn 1: agent responds with next step (name/reason or slots)",
   "status": "PASS",
-  "detail": "Sure, could you please tell me your name?",
-  "latency_s": 1.44
+  "detail": "I\u2019m sorry, Deekshith has no 15\u2011minute slots left today. Would you like to try another day?",
+  "latency_s": 3.17
  },
  {
   "case": "turn 2: 2-3 slots offered via real get_free_slots",
   "status": "PASS",
-  "detail": "We have slots at 12:00, 12:30 or 13:00 on Monday. Which one works for you?",
-  "latency_s": 2.83
+  "detail": "Priya, Deekshith has slots available tomorrow at noon, twelve thirty, and one o'clock. Would any of those work for you?",
+  "latency_s": 3.77
  },
  {
   "case": "offered slots are actually free (freebusy) and inside owner rules",
@@ -26,8 +26,8 @@
  {
   "case": "booking confirmed",
   "status": "PASS",
-  "detail": "Your meeting is booked for Monday 23 November at 12:00. Anything else I can help with?",
-  "latency_s": 5.12
+  "detail": "Your meeting is booked for Monday 23 November at 12:00. I can send an invite if you\u2019d like. Do you want me to email it to you?",
+  "latency_s": 9.03
  },
  {
   "case": "exactly one booking row recorded",
@@ -50,7 +50,7 @@
  {
   "case": "event title present",
   "status": "PASS",
-  "detail": "[TEST] e2e happy path",
+  "detail": "Partner Discussion  (model did not keep the [TEST] tag; cleanup is keyed on the caller id, not the title)",
   "latency_s": null
  },
  {
@@ -68,7 +68,7 @@
  {
   "case": "turn 3 slow",
   "status": "WARN",
-  "detail": "5.1s > 5.0s: The first one please.",
+  "detail": "9.0s > 5.0s: The first one please.",
   "latency_s": null
  },
  {

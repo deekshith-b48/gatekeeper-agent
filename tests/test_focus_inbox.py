@@ -37,7 +37,9 @@ def setup(tmp_path, contact="c1", notifier=None):
 
 async def test_focus_off_pushes_immediately(tmp_path):
     deps, owner, caller, conv, n = setup(tmp_path)
-    await alert_owner(ctx(deps, owner, caller, conv, n), "message", "call me")
+    _t = await alert_owner(ctx(deps, owner, caller, conv, n), "message", "call me")
+    if _t:
+        await _t
     assert len(n.sent) == 1 and not n.sent[0]["urgent"]
     assert repo.undelivered_alerts(deps.db, owner.id) == []
 
@@ -45,10 +47,14 @@ async def test_focus_off_pushes_immediately(tmp_path):
 async def test_focus_on_holds_routine_but_not_urgent(tmp_path):
     deps, owner, caller, conv, n = setup(tmp_path)
     repo.set_focus(deps.db, owner.id, True)
-    await alert_owner(ctx(deps, owner, caller, conv, n), "message", "routine")
+    _t = await alert_owner(ctx(deps, owner, caller, conv, n), "message", "routine")
+    if _t:
+        await _t
     assert n.sent == [] and len(repo.undelivered_alerts(deps.db, owner.id)) == 1  # held, but stored for the inbox
     repo.start_conversation(deps.db, owner, "c1")  # 2nd contact within 7 days => urgent
-    await alert_owner(ctx(deps, owner, caller, conv, n), "message", "again")
+    _t = await alert_owner(ctx(deps, owner, caller, conv, n), "message", "again")
+    if _t:
+        await _t
     assert len(n.sent) == 1 and n.sent[0]["urgent"]
 
 
@@ -56,8 +62,12 @@ async def test_focus_end_sends_one_digest_with_inbox_link(tmp_path):
     deps, owner, caller, conv, n = setup(tmp_path)
     repo.set_focus(deps.db, owner.id, True)
     c = ctx(deps, owner, caller, conv, n)
-    await alert_owner(c, "booking", "booked Monday 12:00")
-    await alert_owner(c, "message", "please call back")
+    _t = await alert_owner(c, "booking", "booked Monday 12:00")
+    if _t:
+        await _t
+    _t = await alert_owner(c, "message", "please call back")
+    if _t:
+        await _t
     assert n.sent == []
     assert await flush_digest(deps.db, n, owner, "https://phone.example") == 2
     assert len(n.sent) == 1 and n.sent[0]["click"] == "https://phone.example/inbox" and "Focus ended" in n.sent[0]["title"]
@@ -84,6 +94,12 @@ def test_old_database_gets_focus_columns(tmp_path):
     assert repo.get_focus(db, "1") is False and repo.set_focus(db, "1", True) and repo.get_focus(db, "1")
 
 
+async def _run_alert(deps, owner, caller, conv, rec):
+    task = await alert_owner(ctx(deps, owner, caller, conv, rec), "message", "call me back")
+    if task:
+        await task
+
+
 def test_api_hook_inbox_and_auth(tmp_path, monkeypatch):
     monkeypatch.setenv("ADMIN_TOKEN", "sekret")
     from app.core.config import get_settings
@@ -97,7 +113,7 @@ def test_api_hook_inbox_and_auth(tmp_path, monkeypatch):
             assert c.get("/hook/focus/on?key=sekret").json()["focus"]["on"] is True
             owner = repo.get_owner(deps.db, "owner"); caller, conv = repo.start_conversation(deps.db, owner, "+911234567890")
             import asyncio
-            asyncio.run(alert_owner(ctx(deps, owner, caller, conv, rec), "message", "call me back"))
+            asyncio.run(_run_alert(deps, owner, caller, conv, rec))
             assert rec.sent == []
             r = c.get("/hook/focus/off?key=sekret").json()
             assert r["focus"]["on"] is False and r["digest_alerts"] == 1 and len(rec.sent) == 1

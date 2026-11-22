@@ -87,3 +87,18 @@ async def test_when_every_model_is_rate_limited_wait_out_the_short_limit_instead
     st = Settings(_env_file=None, llm_provider="openai", llm_api_key="k", llm_base_url="https://x.test/v1", llm_model="a", llm_fallback_model="b")
     out = await OpenAICompatLLM(st, transport=httpx.MockTransport(handler)).chat([{"role": "user", "content": "x"}])
     assert parse_step(out).say == "recovered" and state["n"] == 3
+
+
+async def test_daily_limit_message_is_parsed_so_we_do_not_wait_minutes():
+    seen = []
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        seen.append(1)
+        return httpx.Response(429, text='{"error":{"message":"Rate limit reached ... tokens per day (TPD) ... Please try again in 4m7.536s."}}')
+
+    st = Settings(_env_file=None, llm_provider="openai", llm_api_key="k", llm_base_url="https://x.test/v1", llm_model="a", llm_fallback_model="b")
+    import time, pytest
+    t0 = time.monotonic()
+    with pytest.raises(Exception):
+        await OpenAICompatLLM(st, transport=httpx.MockTransport(handler)).chat([{"role": "user", "content": "x"}])
+    assert time.monotonic() - t0 < 2 and len(seen) == 2  # a 4-minute limit is NOT waited out; each model is tried once

@@ -20,20 +20,20 @@
  {
   "case": "LLM primary (openai/gpt-oss-120b) responds",
   "status": "PASS",
-  "detail": "Hi there friend",
-  "latency_s": 0.9
+  "detail": "Hello there friend",
+  "latency_s": 0.83
  },
  {
   "case": "LLM fallback model (openai/gpt-oss-20b) responds",
   "status": "PASS",
-  "detail": "Hi there buddy",
-  "latency_s": 0.61
+  "detail": "Hello world friend",
+  "latency_s": 0.68
  },
  {
   "case": "LLM second provider (gemini-3.5-flash-lite) responds",
   "status": "PASS",
-  "detail": "Hello there friend",
-  "latency_s": 4.29
+  "detail": "Hello to you.",
+  "latency_s": 0.96
  },
  {
   "case": "STT/TTS",
@@ -45,7 +45,7 @@
   "case": "calendar token valid, freebusy readable (today)",
   "status": "PASS",
   "detail": "1 busy block(s) in next 24h",
-  "latency_s": 0.93
+  "latency_s": 0.86
  },
  {
   "case": "notify channel (ntfy) delivers",

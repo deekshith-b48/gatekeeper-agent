@@ -3,85 +3,91 @@
   "case": "vague: 'yo is he free?'",
   "status": "PASS",
   "detail": "",
-  "latency_s": 0.65
+  "latency_s": 0.81
  },
  {
   "case": "vague: 'tomorrow maybe evening?'",
   "status": "PASS",
   "detail": "",
-  "latency_s": 0.68
+  "latency_s": 0.89
  },
  {
   "case": "vague: 'whenever'",
   "status": "PASS",
   "detail": "",
-  "latency_s": 1.29
+  "latency_s": 1.12
+ },
+ {
+  "case": "changes mind mid-flow (slot, then 'actually Friday'): no clear next step",
+  "status": "WARN",
+  "detail": "You are all set for Friday 27 November at 11:00 for your hiring discussion. Have a great day!",
+  "latency_s": null
  },
  {
   "case": "changes mind mid-flow (slot, then 'actually Friday')",
   "status": "PASS",
   "detail": "",
-  "latency_s": 7.66
+  "latency_s": 12.95
  },
  {
   "case": "empty message",
   "status": "PASS",
   "detail": "",
-  "latency_s": 0.8
+  "latency_s": 5.86
  },
  {
   "case": "gibberish 'asdfgh'",
   "status": "PASS",
   "detail": "",
-  "latency_s": 0.64
+  "latency_s": 1.15
  },
  {
   "case": "3000-char paste",
   "status": "PASS",
   "detail": "",
-  "latency_s": 0.47
+  "latency_s": 8.97
  },
  {
   "case": "emojis only",
   "status": "PASS",
   "detail": "",
-  "latency_s": 3.41
+  "latency_s": 0.77
  },
  {
   "case": "Hinglish/Kannada mix",
   "status": "PASS",
   "detail": "",
-  "latency_s": 4.14
+  "latency_s": 9.0
  },
  {
   "case": "invalid: 3 AM",
   "status": "PASS",
   "detail": "",
-  "latency_s": 1.25
+  "latency_s": 1.01
  },
  {
   "case": "invalid: yesterday",
   "status": "PASS",
   "detail": "",
-  "latency_s": 1.86
+  "latency_s": 1.01
  },
  {
   "case": "invalid: next year",
   "status": "PASS",
   "detail": "",
-  "latency_s": 4.86
+  "latency_s": 9.25
  },
  {
   "case": "invalid: 4 hours",
   "status": "PASS",
   "detail": "",
-  "latency_s": 2.67
+  "latency_s": 1.37
  },
  {
   "case": "slot never offered: 'book me at 2:37'",
   "status": "PASS",
   "detail": "",
-  "latency_s": 5.5
+  "latency_s": 2.97
  },
  {
   "case": "silence/idle (voice)",
