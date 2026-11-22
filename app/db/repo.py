@@ -284,3 +284,41 @@ def recent_bookings_by_caller(db: Database, caller_id: str, hours: int = 24) -> 
     with db.session() as s:
         convs = s.exec(select(Conversation.id).where(Conversation.caller_id == caller_id, Conversation.started_at >= utcnow() - timedelta(hours=hours))).all()
         return len(s.exec(select(Booking.id).where(Booking.conversation_id.in_(convs), Booking.status == "confirmed")).all()) if convs else 0
+
+
+def _chat_row(s, c: Conversation) -> dict:
+    cl = s.get(Caller, c.caller_id)
+    msgs = s.exec(select(Message).where(Message.conversation_id == c.id).order_by(Message.id)).all()
+    last = msgs[-1] if msgs else None
+    first_caller = next((m.text for m in msgs if m.role == "caller"), "")
+    return {"id": c.id, "channel": c.channel, "status": c.status, "started": c.started_at.isoformat(timespec="seconds") + "Z",
+            "last_at": (last.created_at if last else c.started_at).isoformat(timespec="seconds") + "Z", "turns": len(msgs),
+            "preview": (last.text if last else "")[:110], "topic": first_caller[:90],
+            "booked": len(s.exec(select(Booking.id).where(Booking.conversation_id == c.id)).all()),
+            "unread": len(s.exec(select(Alert.id).where(Alert.conversation_id == c.id, Alert.read == False)).all()),  # noqa: E712
+            "caller": {"name": cl.name if cl else "", "contact": cl.contact if cl else "", "email": cl.email if cl else "",
+                       "times_contacted": cl.contact_count if cl else 0, "trust": cl.trust_level if cl else "unknown"}}
+
+
+def list_chats(db: Database, owner_id: str, channel: str = "", limit: int = 60) -> dict:
+    """Every conversation on every channel, newest activity first, plus per-channel counts for the filter chips."""
+    with db.session() as s:
+        rows = [_chat_row(s, c) for c in s.exec(select(Conversation).where(Conversation.owner_id == owner_id)
+                                               .order_by(Conversation.started_at.desc()).limit(300)).all()]
+        counts: dict[str, int] = {}
+        for r in rows:
+            counts[r["channel"]] = counts.get(r["channel"], 0) + 1
+        rows = [r for r in rows if r["turns"] and (not channel or r["channel"] == channel)]  # empty chats (never spoke) are noise
+        rows.sort(key=lambda r: r["last_at"], reverse=True)
+        return {"channels": counts, "items": rows[:limit]}
+
+
+def get_chat(db: Database, owner_id: str, conversation_id: str) -> dict | None:
+    with db.session() as s:
+        c = s.get(Conversation, conversation_id)
+        if not c or c.owner_id != owner_id:
+            return None
+        row = _chat_row(s, c)
+        row["messages"] = [{"role": m.role, "text": m.text, "at": m.created_at.isoformat(timespec="seconds") + "Z"}
+                           for m in s.exec(select(Message).where(Message.conversation_id == c.id).order_by(Message.id)).all()]
+        return row

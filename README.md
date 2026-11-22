@@ -36,6 +36,11 @@ Setup: Twilio Console → Messaging → *Try it out* → *Send a WhatsApp messag
 
 `GET /api/stream?key=<ADMIN_TOKEN>` is a server-sent-events feed of every turn and alert; the inbox and the showcase "Live feed" use it to update instantly.
 
+## One page to operate everything: `/inbox`
+- **Focus ON: calm view.** Only URGENT items (VIP / repeat callers) show; everything else is counted as "held" until focus ends.
+- **Focus OFF: full workspace.** New / All alerts plus a **Chats** tab with every conversation from every channel (WhatsApp, web, voice, email), channel filter chips with counts, and a thread view with the full transcript. For WhatsApp senders you can **reply from the page** (sent through Twilio and saved in the thread); for others there are call-back, WhatsApp and email buttons.
+- API: `GET /api/chats[?channel=]`, `GET /api/chats/{id}`, `POST /api/chats/{id}/reply` (admin token).
+
 ## Live showcase for judges: `/showcase`
 Open `http://localhost:8000/showcase` (token via `?admin=<ADMIN_TOKEN>`, then stripped from the URL). It has:
 - **Test dashboard**: runs the real pytest suite on the server and shows every test by category, plus 8 use-case cards that go green only when their real tests pass. "Run incl. live LLM red-team" replays all 28 attacks against the real configured model chain.

@@ -1,6 +1,6 @@
 """Owner-facing: focus switch (phone automation hook), alert inbox. Admin-token protected."""
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.agent.alerts import flush_digest
 from app.core.bus import bus
@@ -71,3 +71,39 @@ def read_all(request: Request):
 def read_one(alert_id: int, request: Request):
     d, o = _owner(request)
     return {"marked": repo.mark_read(d.db, o.id, alert_id)}
+
+
+@router.get("/api/chats", dependencies=[Depends(require_admin)])
+def chats(request: Request, channel: str = "", limit: int = 60):
+    d, o = _owner(request)
+    return repo.list_chats(d.db, o.id, channel=channel, limit=min(limit, 200))
+
+
+@router.get("/api/chats/{cid}", dependencies=[Depends(require_admin)])
+def chat(cid: str, request: Request):
+    d, o = _owner(request)
+    c = repo.get_chat(d.db, o.id, cid)
+    if not c:
+        raise HTTPException(404, "conversation not found")
+    return c
+
+
+class ReplyBody(BaseModel):
+    text: str = Field(min_length=1, max_length=1000)
+
+
+@router.post("/api/chats/{cid}/reply", dependencies=[Depends(require_admin)])
+async def chat_reply(cid: str, body: ReplyBody, request: Request):
+    """The owner answers a WhatsApp sender directly from the inbox. Other channels have no outbound path (the UI offers call / wa.me / mailto instead)."""
+    d, o = _owner(request)
+    c = repo.get_chat(d.db, o.id, cid)
+    if not c:
+        raise HTTPException(404, "conversation not found")
+    phone = c["caller"]["contact"]
+    if c["channel"] != "whatsapp" or not phone.startswith("+"):
+        raise HTTPException(400, "replying from here is only available for WhatsApp chats")
+    if not await request.app.state.whatsapp.sender.send(phone, body.text.strip()):
+        raise HTTPException(502, "WhatsApp could not deliver it (Twilio not configured, or the sender is outside the sandbox/24 h window)")
+    repo.add_message(d.db, cid, "owner", body.text.strip())
+    bus.publish({"type": "turn", "channel": "whatsapp", "caller": c["caller"]["name"] or phone[-4:], "in": "(you)", "out": body.text.strip()[:140], "flagged": False})
+    return {"ok": True}

@@ -29,6 +29,12 @@
   .sum { color:var(--ink); word-wrap:break-word; } .acts { display:flex; gap:8px; flex-wrap:wrap; } .acts .ibtn { width:38px; height:38px; }
   .tr { background:var(--surface2); border-radius:12px; padding:10px 12px; font-size:14px; display:flex; flex-direction:column; gap:6px; } .tr b { font-size:11px; color:var(--mute); text-transform:uppercase; letter-spacing:.05em; display:flex; align-items:center; gap:5px; } .tr b .ic { width:13px; height:13px; }
   .empty { text-align:center; color:var(--mute); padding:44px 10px; } .empty .ic { width:54px; height:54px; opacity:.5; display:block; margin:0 auto 8px; }
+  .seg { display:flex; gap:8px; flex-wrap:wrap; } .chips { display:flex; gap:8px; overflow-x:auto; padding-bottom:2px; } .chips .ibtn { width:auto; padding:0 14px; gap:6px; height:38px; border-radius:99px; font-size:13px; font-weight:650; flex:none; } .chips .ibtn.on { background:var(--brand); color:#fff; border-color:var(--brand); } .chips .n { opacity:.7; }
+  .calm { text-align:center; color:var(--mute); padding:12px 0 2px; display:flex; flex-direction:column; align-items:center; gap:8px; } .calm .row { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+  .chat { padding:12px 14px; display:flex; gap:12px; cursor:pointer; align-items:center; } .chat:hover { border-color:var(--brand); } .chat .main { gap:3px; } .chat .pv { color:var(--mute); font-size:13.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; } .dotu { width:10px; height:10px; border-radius:50%; background:var(--bad); flex:none; }
+  #thread { position:fixed; inset:0; z-index:30; background:var(--bg); display:flex; flex-direction:column; } #thread .th { display:flex; align-items:center; gap:12px; padding:calc(10px + env(safe-area-inset-top)) 14px 10px; background:var(--surface); border-bottom:1px solid var(--line); } #thread .th .who { flex:1; min-width:0; } #thread .th .who b { display:block; } #thread .th .who small { color:var(--mute); }
+  #tbody { flex:1; overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:8px; max-width:720px; width:100%; margin:0 auto; } .m { max-width:84%; padding:9px 13px; border-radius:14px; word-wrap:break-word; background:var(--surface); border:1px solid var(--line); } .m.caller { align-self:flex-start; border-top-left-radius:4px; } .m.agent { align-self:flex-end; background:var(--surface2); border-top-right-radius:4px; } .m.owner { align-self:flex-end; background:linear-gradient(135deg,var(--brand),var(--brand2)); color:#fff; border:0; border-top-right-radius:4px; } .m small { display:flex; gap:5px; align-items:center; opacity:.65; font-size:11px; margin-bottom:2px; } .m small .ic { width:12px; height:12px; }
+  #tbar { display:flex; gap:8px; padding:10px 14px calc(10px + env(safe-area-inset-bottom)); background:var(--surface); border-top:1px solid var(--line); max-width:720px; width:100%; margin:0 auto; } #tbar input { flex:1; min-width:0; padding:12px 16px; border-radius:99px; border:1px solid var(--line); background:var(--bg); color:var(--ink); font-size:16px; } #tbar .acts { display:flex; gap:8px; }
   #gate { max-width:380px; margin:50px auto; padding:26px 22px; display:flex; flex-direction:column; align-items:center; gap:14px; } #gate input { width:100%; padding:12px 14px; border-radius:12px; border:1px solid var(--line); background:var(--bg); color:var(--ink); font-size:16px; text-align:center; }
 </style>
 </head>
@@ -38,50 +44,89 @@
   <div class="hero" id="hero"><div class="hrow"><h1><span data-ic="shield"></span>Gatekeeper</h1><span class="live" id="live" hidden><i></i>LIVE</span><button class="ibtn" id="refresh" aria-label="Refresh"><span data-ic="refresh"></span></button></div>
     <div class="focus"><div class="moon"><span data-ic="moon"></span></div><div class="t"><b id="fTitle">Focus</b><small id="fSub"></small></div><button class="sw" id="fSw" aria-label="Focus mode"></button></div></div>
   <div class="kpis"><div class="kpi" id="kUnread"><span data-ic="inbox"></span><b id="nUnread">0</b></div><div class="kpi u" id="kUrgent"><span data-ic="alert"></span><b id="nUrgent">0</b></div><div class="kpi"><span data-ic="calcheck"></span><b id="nBook">0</b></div></div>
-  <main><div class="tabs"><button class="ibtn on" id="tUnread"><span data-ic="inbox"></span>New</button><button class="ibtn" id="tAll"><span data-ic="list"></span>All</button><span style="flex:1"></span><button class="ibtn" id="readAll" aria-label="Mark all read"><span data-ic="checks"></span></button></div>
+  <main><div id="calmBar" class="calm" hidden></div>
+    <div class="seg" id="seg"><button class="ibtn on" id="tUnread"><span data-ic="inbox"></span>New</button><button class="ibtn" id="tAll"><span data-ic="list"></span>All</button><button class="ibtn" id="tChats"><span data-ic="chat"></span>Chats</button><span style="flex:1"></span><button class="ibtn" id="readAll" aria-label="Mark all read"><span data-ic="checks"></span></button></div>
+    <div class="chips" id="chips" hidden></div>
     <div id="list" style="display:flex;flex-direction:column;gap:10px"></div></main>
 </div>
+<div id="thread" hidden><div class="th"><button class="ibtn" id="tBack" aria-label="Back"><span data-ic="x"></span></button><div class="avatar" id="tAv">?</div><div class="who"><b id="tName"></b><small id="tSub"></small></div><div class="acts" id="tActs" style="display:flex;gap:8px"></div></div><div id="tbody"></div><div id="tbar" hidden><input type="text" id="tIn" placeholder="Reply on WhatsApp" autocomplete="off" aria-label="Reply" enterkeyhint="send"><button class="ibtn pri" id="tSend" aria-label="Send"><span data-ic="send"></span></button></div></div>
 <script src="/static/icons.js"></script>
 <script>
 const $ = (id) => document.getElementById(id), h = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x !== undefined) e.textContent = x; return e; };
 const q = new URLSearchParams(location.search);
 if (q.get("admin")) { try { localStorage.gkadmin = q.get("admin"); } catch {} history.replaceState(null, "", location.pathname); }
 let TOKEN = ""; try { TOKEN = localStorage.gkadmin || ""; } catch {}
-let tab = "unread", data = null;
+let tab = "unread", chan = "", data = null, chats = null, openId = null;
 async function api(path, method = "GET", body) {
   const r = await fetch(path, { method, headers: { "x-admin-token": TOKEN, ...(body ? { "content-type": "application/json" } : {}) }, body: body && JSON.stringify(body) });
   if (r.status === 401 || r.status === 403) { $("app").hidden = true; $("gate").hidden = false; throw new Error("auth"); }
-  if (!r.ok) throw new Error(r.statusText); return r.json();
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText); return r.json();
 }
 const ago = (iso) => { const s = (Date.now() - Date.parse(iso)) / 1000; return s < 60 ? "now" : s < 3600 ? Math.round(s / 60) + "m" : s < 86400 ? Math.round(s / 3600) + "h" : new Date(iso).toLocaleDateString(); };
-const KIND = { booking: "calcheck", message: "mail", "calendar down": "alert", "agent down": "alert" }, CH = { whatsapp: "wa", voice: "mic", web: "globe", email: "mail" };
-async function load() { try { data = await api("/api/inbox"); $("gate").hidden = true; $("app").hidden = false; render(); } catch (e) {} }
+const KIND = { booking: "calcheck", message: "mail", "calendar down": "alert", "agent down": "alert" }, CH = { whatsapp: "wa", voice: "mic", web: "globe", email: "mail" }, CHN = { whatsapp: "WhatsApp", voice: "Voice", web: "Web", email: "Email" };
+const isPhone = (c) => /^\+?[0-9][0-9 ()-]{6,}$/.test(c || "");
+async function load() {
+  try { data = await api("/api/inbox"); $("gate").hidden = true; $("app").hidden = false;
+    if (!data.focus.on && tab === "chats") chats = await api("/api/chats" + (chan ? "?channel=" + chan : ""));
+    else if (!data.focus.on) { try { chats = await api("/api/chats"); } catch {} }
+    render(); if (openId) openThread(openId, true); } catch (e) {}
+}
+function contactLinks(box, c) {
+  const lnk = (icon, href, cls = "", blank = false) => { const a = h("a", "ibtn " + cls); a.append(iconEl(icon)); a.href = href; if (blank) { a.target = "_blank"; a.rel = "noopener"; } box.append(a); };
+  if (isPhone(c.contact)) { lnk("phone", "tel:" + c.contact.replace(/[^0-9+]/g, ""), "pri"); lnk("wa", "https://wa.me/" + c.contact.replace(/[^0-9]/g, ""), "", true); }
+  if (c.email) lnk("mail", "mailto:" + c.email);
+}
+function alertCard(i) {
+  const c = h("div", "card item" + (i.urgent ? " urgent" : "") + (i.read ? " read" : "")), av = h("div", "avatar", (i.caller.name || i.caller.contact || "?").replace(/^\+/, "#")[0].toUpperCase()), b = h("span", "badge"); b.append(iconEl(CH[i.channel] || "chat")); av.append(b);
+  const m = h("div", "main"), top = h("div", "top"); top.append(iconEl(KIND[i.kind] || "chat"), h("b", "", i.caller.name || "Unknown"));
+  if (i.urgent) { const u = h("span", "chip bad"); u.append(iconEl("zap")); top.append(u); } if (i.caller.times_contacted > 1) top.append(h("span", "chip", i.caller.times_contacted + "×")); top.append(h("span", "when", ago(i.created)));
+  const sum = h("div", "sum", i.summary.replace(/^[^:]*: /, "")), acts = h("div", "acts"); contactLinks(acts, i.caller);
+  if (i.conversation_id) { const x = h("button", "ibtn"); x.append(iconEl("chat")); x.onclick = () => openThread(i.conversation_id); acts.append(x); }
+  if (!i.read) { const x = h("button", "ibtn ok"); x.append(iconEl("check")); x.onclick = async () => { await api(`/api/inbox/${i.id}/read`, "POST"); load(); }; acts.append(x); }
+  m.append(top, sum, acts); c.append(av, m); return c;
+}
+function chatRow(r) {
+  const c = h("div", "card chat"), av = h("div", "avatar", (r.caller.name || r.caller.contact || "?").replace(/^\+/, "#")[0].toUpperCase()), b = h("span", "badge"); b.append(iconEl(CH[r.channel] || "chat")); av.append(b);
+  const m = h("div", "main"), top = h("div", "top"); top.append(h("b", "", r.caller.name || (isPhone(r.caller.contact) ? r.caller.contact : "Visitor")));
+  if (r.booked) { const k = h("span", "chip ok"); k.append(iconEl("calcheck")); top.append(k); } if (r.caller.trust === "vip") { const k = h("span", "chip warn"); k.append(iconEl("star")); top.append(k); } if (r.caller.times_contacted > 1) top.append(h("span", "chip", r.caller.times_contacted + "×"));
+  top.append(h("span", "when", ago(r.last_at))); m.append(top, h("div", "pv", r.topic || r.preview)); c.append(av, m); if (r.unread) c.append(h("span", "dotu")); c.onclick = () => openThread(r.id); return c;
+}
 function render() {
-  const f = data.focus; $("fSw").classList.toggle("on", f.on); $("hero").classList.toggle("off", !f.on);
-  $("fTitle").textContent = f.on ? "Focus ON" : "Focus off";
-  $("fSub").replaceChildren(); $("fSub").append(iconEl(f.on ? "eye" : "bell"), document.createTextNode(f.on ? ` screening${f.since ? " since " + new Date(f.since).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""}` : " alerts are instant"));
-  const it = data.items, unread = it.filter((i) => !i.read);
+  const f = data.focus, on = f.on; $("fSw").classList.toggle("on", on); $("hero").classList.toggle("off", !on);
+  $("fTitle").textContent = on ? "Focus ON" : "Focus off";
+  $("fSub").replaceChildren(); $("fSub").append(iconEl(on ? "eye" : "bell"), document.createTextNode(on ? ` screening${f.since ? " since " + new Date(f.since).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""}` : " everything is open"));
+  const it = data.items, unread = it.filter((i) => !i.read), held = unread.filter((i) => !i.urgent);
   $("nUnread").textContent = unread.length; $("nUrgent").textContent = unread.filter((i) => i.urgent).length; $("nBook").textContent = it.filter((i) => i.kind === "booking").length;
   document.title = unread.length ? `(${unread.length}) Gatekeeper` : "Gatekeeper Inbox";
-  $("tUnread").classList.toggle("on", tab === "unread"); $("tAll").classList.toggle("on", tab === "all");
-  const L = $("list"); L.replaceChildren(); const items = it.filter((i) => tab === "all" || !i.read);
-  if (!items.length) { const e = h("div", "empty"); e.append(iconEl("checks", "xl")); L.append(e); }
-  items.forEach((i) => {
-    const c = h("div", "card item" + (i.urgent ? " urgent" : "") + (i.read ? " read" : "")), av = h("div", "avatar", (i.caller.name || i.caller.contact || "?").replace(/^\+/, "#")[0].toUpperCase()), b = h("span", "badge"); b.append(iconEl(CH[i.channel] || "chat")); av.append(b);
-    const m = h("div", "main"), top = h("div", "top"); top.append(iconEl(KIND[i.kind] || "chat"), h("b", "", i.caller.name || "Unknown"));
-    if (i.urgent) { const u = h("span", "chip bad"); u.append(iconEl("zap")); top.append(u); } if (i.caller.times_contacted > 1) top.append(h("span", "chip", i.caller.times_contacted + "×")); top.append(h("span", "when", ago(i.created)));
-    const sum = h("div", "sum", i.summary.replace(/^[^:]*: /, "")), acts = h("div", "acts"), phone = /^\+?[0-9][0-9 ()-]{6,}$/.test(i.caller.contact) ? i.caller.contact : "";
-    const lnk = (icon, href, cls = "", blank = false) => { const a = h("a", "ibtn " + cls); a.append(iconEl(icon)); a.href = href; if (blank) { a.target = "_blank"; a.rel = "noopener"; } acts.append(a); };
-    if (phone) { lnk("phone", "tel:" + phone.replace(/[^0-9+]/g, ""), "pri"); lnk("wa", "https://wa.me/" + phone.replace(/[^0-9]/g, ""), "", true); }
-    if (i.caller.email) lnk("mail", "mailto:" + i.caller.email);
-    const tx = h("div", "tr"); tx.hidden = true; i.transcript.forEach((t) => { const d = h("div"), w = h("b"); w.append(iconEl(t.role === "agent" ? "bot" : "user"), document.createTextNode(t.role === "agent" ? "Gatekeeper" : "Caller")); d.append(w, h("div", "", t.text)); tx.append(d); });
-    if (i.transcript.length) { const x = h("button", "ibtn"); x.append(iconEl("chat")); x.onclick = () => (tx.hidden = !tx.hidden); acts.append(x); }
-    if (!i.read) { const x = h("button", "ibtn ok"); x.append(iconEl("check")); x.onclick = async () => { await api(`/api/inbox/${i.id}/read`, "POST"); load(); }; acts.append(x); }
-    m.append(top, sum, acts, tx); c.append(av, m); L.append(c);
-  });
+  const L = $("list"); L.replaceChildren(); $("calmBar").hidden = !on; $("seg").hidden = on; $("chips").hidden = on || tab !== "chats";
+  if (on) {   // CALM MODE: heads-down. Only what is urgent; everything else waits until focus ends.
+    const cb = $("calmBar"); cb.replaceChildren(); const row = h("div", "row"), a = h("span", "chip"); a.append(iconEl("moon"), document.createTextNode("held " + held.length)); const b = h("span", "chip bad"); b.append(iconEl("zap"), document.createTextNode("urgent " + (unread.length - held.length))); row.append(a, b); cb.append(row);
+    const ur = unread.filter((i) => i.urgent); if (!ur.length) { const e = h("div", "empty"); e.append(iconEl("moon", "xl")); L.append(e); } ur.forEach((i) => L.append(alertCard(i))); return;
+  }
+  // FULL WORKSPACE: focus is off, every conversation on every channel is open
+  $("tUnread").classList.toggle("on", tab === "unread"); $("tAll").classList.toggle("on", tab === "all"); $("tChats").classList.toggle("on", tab === "chats");
+  if (tab === "chats") {
+    const ch = $("chips"); ch.replaceChildren(); const counts = (chats && chats.channels) || {}, total = Object.values(counts).reduce((a, b) => a + b, 0);
+    [["", "layers", "All", total], ...["whatsapp", "web", "voice", "email"].map((k) => [k, CH[k], CHN[k], counts[k] || 0])].forEach(([k, ic, name, n]) => { const x = h("button", "ibtn" + (chan === k ? " on" : "")); x.append(iconEl(ic), document.createTextNode(name), h("span", "n", n)); x.onclick = () => { chan = k; load(); }; ch.append(x); });
+    const items = (chats && chats.items) || []; if (!items.length) { const e = h("div", "empty"); e.append(iconEl("chat", "xl")); L.append(e); } items.forEach((r) => L.append(chatRow(r))); return;
+  }
+  const items = it.filter((i) => tab === "all" || !i.read); if (!items.length) { const e = h("div", "empty"); e.append(iconEl("checks", "xl")); L.append(e); } items.forEach((i) => L.append(alertCard(i)));
 }
+async function openThread(id, quiet) {
+  try { const c = await api("/api/chats/" + id); openId = id; $("thread").hidden = false;
+    $("tAv").textContent = (c.caller.name || c.caller.contact || "?").replace(/^\+/, "#")[0].toUpperCase(); $("tName").textContent = c.caller.name || c.caller.contact || "Visitor";
+    $("tSub").replaceChildren(iconEl(CH[c.channel] || "chat"), document.createTextNode(" " + (CHN[c.channel] || c.channel) + (c.caller.times_contacted > 1 ? " · " + c.caller.times_contacted + "×" : "")));
+    const acts = $("tActs"); acts.replaceChildren(); contactLinks(acts, c.caller);
+    const B = $("tbody"), atBottom = B.scrollHeight - B.scrollTop - B.clientHeight < 80; B.replaceChildren();
+    c.messages.forEach((m) => { const d = h("div", "m " + m.role), sm = h("small"); sm.append(iconEl(m.role === "agent" ? "bot" : m.role === "owner" ? "user" : "user"), document.createTextNode(m.role === "agent" ? "Gatekeeper" : m.role === "owner" ? "You" : (c.caller.name || "Caller")), h("span", "", " · " + new Date(m.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))); d.append(sm, h("div", "", m.text)); B.append(d); });
+    if (!quiet || atBottom) B.scrollTop = 1e9; $("tbar").hidden = !(c.channel === "whatsapp" && c.caller.contact.startsWith("+"));
+  } catch (e) { if (!quiet) alert(e.message); }
+}
+$("tBack").onclick = () => { openId = null; $("thread").hidden = true; load(); };
+$("tSend").onclick = async () => { const t = $("tIn").value.trim(); if (!t || !openId) return; $("tSend").disabled = true; try { await api(`/api/chats/${openId}/reply`, "POST", { text: t }); $("tIn").value = ""; await openThread(openId); } catch (e) { alert(e.message); } $("tSend").disabled = false; };
+$("tIn").onkeydown = (e) => { if (e.key === "Enter") $("tSend").onclick(); };
 $("fSw").onclick = async () => { $("fSw").disabled = true; try { await api("/api/focus", "POST", { on: !data.focus.on }); } finally { $("fSw").disabled = false; load(); } };
-$("tUnread").onclick = () => { tab = "unread"; render(); }; $("tAll").onclick = () => { tab = "all"; render(); };
+$("tUnread").onclick = () => { tab = "unread"; load(); }; $("tAll").onclick = () => { tab = "all"; load(); }; $("tChats").onclick = () => { tab = "chats"; load(); };
 $("readAll").onclick = async () => { await api("/api/inbox/read", "POST"); load(); }; $("refresh").onclick = load;
 $("tokGo").onclick = async () => { TOKEN = $("tokIn").value.trim(); try { localStorage.gkadmin = TOKEN; } catch {} $("tokErr").hidden = true; try { await api("/api/focus"); load(); live(); } catch { $("tokErr").hidden = false; $("tokErr").replaceChildren(iconEl("x")); } };
 function live() { if (!TOKEN || !window.EventSource) return; const es = new EventSource("/api/stream?key=" + encodeURIComponent(TOKEN)); es.onopen = () => ($("live").hidden = false); es.onerror = () => ($("live").hidden = true);
