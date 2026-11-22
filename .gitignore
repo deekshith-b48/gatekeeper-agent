@@ -1,6 +1,12 @@
 .env
 credentials.json
 token.json
-data/memory.json
+*.db
+*.db-journal
+data/
+voices/
 __pycache__/
 .venv/
+.pytest_cache/
+build/
+*.egg-info/

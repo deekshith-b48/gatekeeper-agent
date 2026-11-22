@@ -1,0 +1,40 @@
+services:
+  ollama:
+    image: ollama/ollama:latest
+    volumes: [ollama:/root/.ollama]
+    ports: ["11434:11434"]
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      retries: 20
+
+  ollama-init:  # pulls the models once; free, local
+    image: ollama/ollama:latest
+    depends_on: {ollama: {condition: service_healthy}}
+    environment: {OLLAMA_HOST: "http://ollama:11434"}
+    entrypoint: ["/bin/sh", "-c", "ollama pull ${LLM_MODEL:-qwen2.5:7b-instruct} && ollama pull ${LLM_FALLBACK_MODEL:-qwen2.5:3b} && ollama pull ${GUARD_MODEL:-llama-guard3:1b}"]
+
+  backend:
+    build: .
+    depends_on: {ollama-init: {condition: service_completed_successfully}}
+    env_file: [.env]
+    environment:
+      OLLAMA_URL: http://ollama:11434
+      DATABASE_URL: sqlite:////srv/data/gatekeeper.db
+      GOOGLE_CREDENTIALS_PATH: /secrets/credentials.json
+      GOOGLE_TOKEN_PATH: /secrets/token.json
+      CALDAV_URL: ${CALDAV_URL:-http://radicale:5232}
+    volumes:
+      - ./data:/srv/data
+      - ./voices:/srv/voices
+      - ./credentials.json:/secrets/credentials.json:ro
+      - ./token.json:/secrets/token.json
+    ports: ["8000:8000"]
+
+  radicale:  # optional CalDAV server:  docker compose --profile caldav up
+    profiles: [caldav]
+    image: tomsquest/docker-radicale
+    volumes: [radicale:/data]
+    ports: ["5232:5232"]
+
+volumes: {ollama: {}, radicale: {}}
