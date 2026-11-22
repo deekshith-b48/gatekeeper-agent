@@ -6,6 +6,11 @@ if os.path.exists(".env"):  # tiny .env loader; real env vars still win
         if sep and not k.startswith("#"):
             os.environ.setdefault(k.strip(), v.strip())
 
+if "--demo" in sys.argv:
+    from .demo import run
+    run()
+    sys.exit()
+
 from .agent import run
 
 try:

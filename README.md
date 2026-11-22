@@ -36,6 +36,7 @@ caller speaks -> STT -> Claude (5 tools only)
 
 **Run:** `set -a; source .env; set +a; python -m gatekeeper`
 **No Google creds?** `GATEKEEPER_MOCK=1 python -m gatekeeper` uses a fake calendar (busy 13:00-14:00 daily).
+**No API key?** `python -m gatekeeper --demo` runs a scripted caller through the real tool layer.
 **Tests:** `python -m unittest discover -s tests -t .`
 
 ## Demo script
