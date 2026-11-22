@@ -251,9 +251,10 @@ def list_alerts(db: Database, owner_id: str, unread_only: bool = False, limit: i
         out = []
         for a in s.exec(q.order_by(Alert.id.desc()).limit(limit)).all():
             c = s.get(Caller, a.caller_id) if a.caller_id else None
+            cv = s.get(Conversation, a.conversation_id)
             msgs = s.exec(select(Message).where(Message.conversation_id == a.conversation_id).order_by(Message.id)).all()
             out.append({"id": a.id, "kind": a.kind, "summary": a.summary, "urgent": a.urgent, "delivered": a.delivered, "read": a.read,
-                        "created": a.created_at.isoformat(timespec="seconds") + "Z", "conversation_id": a.conversation_id,
+                        "created": a.created_at.isoformat(timespec="seconds") + "Z", "conversation_id": a.conversation_id, "channel": cv.channel if cv else "",
                         "caller": {"name": c.name if c else "", "contact": c.contact if c else "", "email": c.email if c else "",
                                    "times_contacted": c.contact_count if c else 0},
                         "transcript": [{"role": m.role, "text": m.text[:400]} for m in msgs[:30]]})

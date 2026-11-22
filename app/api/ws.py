@@ -37,8 +37,8 @@ async def call(ws: WebSocket, owner_handle: str, caller_id: str = "", token: str
         return
     await ws.accept()
     # caller_id is a channel-level identifier (phone, device id). Spoken claims never set it.
-    caller, conv = repo.start_conversation(d.db, owner, caller_id or f"anon-{uuid.uuid4().hex[:12]}")
-    sess = CallSession(d, owner, caller, conv.id)
+    caller, conv = repo.start_conversation(d.db, owner, caller_id or f"anon-{uuid.uuid4().hex[:12]}", channel="voice" if server_tts else "web")
+    sess = CallSession(d, owner, caller, conv.id, channel="voice" if server_tts else "web")
     status = "ended"
     try:
         await _send(ws, {"type": "session_started", "conversation_id": conv.id, "voice": app.voice is not None})

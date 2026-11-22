@@ -29,7 +29,7 @@ _tests_lock = asyncio.Lock()
 
 CATEGORIES = {"test_slots": "Slot engine", "test_guards": "Input guard", "test_tools": "Tools & booking", "test_redteam": "Red-team",
               "test_api_ws": "API & web client", "test_llm_providers": "LLM providers", "test_voice_ws": "Voice pipeline",
-              "test_integration_calendar": "Real calendar"}
+              "test_integration_calendar": "Real calendar", "test_whatsapp": "WhatsApp channel", "test_focus_inbox": "Focus & inbox"}
 
 USE_CASES = [
     ("book", "Book a meeting on a real calendar", "Caller → real free slots → event created, invite sent, owner alerted.", ["test_full_booking_flow", "test_ws_text_call", "test_pwa_assets"]),
@@ -39,6 +39,8 @@ USE_CASES = [
     ("outage", "Outages never crash a call", "Calendar down, LLM down, rate-limited provider: message saved, owner alerted, honest reply.", ["test_calendar_down", "test_llm_down", "test_second_provider", "test_no_second_provider"]),
     ("input", "Garbage input handled", "Unparseable dates, past dates, empty/5000-char input, invalid model output (repaired once).", ["test_passes_normal_speech", "test_invalid_model_output", "test_provider_selection"]),
     ("urgent", "Repeat callers flagged urgent", "2+ contacts in 7 days (or a verified VIP id) → URGENT alert; spoken claims never grant trust.", ["test_recall_and_urgency"]),
+    ("wa", "WhatsApp channel, verified sender", "Twilio webhook with signature check, per-sender sessions, retries de-duplicated, same guard and tools as voice.", ["test_whatsapp", "test_sender_normalisation", "test_signature_matches", "test_twiml", "test_bad_or_missing_signature", "test_unconfigured_webhook", "test_message_gets_agent_reply", "test_duplicate_message_sid", "test_verified_vip", "test_slow_reply", "test_event_stream"]),
+    ("focus", "Focus mode & phone inbox", "Routine alerts held during focus, one digest after; urgent rings through; inbox PWA.", ["test_focus_off_pushes", "test_focus_on_holds", "test_focus_end_sends", "test_failed_push", "test_old_database", "test_api_hook_inbox"]),
     ("live", "Real LLM + real guard end to end", "The same 28 attacks against the live model chain (Groq → Gemini).", ["test_live_model_stack"]),
 ]
 
@@ -161,6 +163,7 @@ def stats(request: Request):
                            "turns": len(msgs), "booked": len(bk), "transcript": [{"role": m.role, "text": m.text[:300]} for m in msgs[:12]]})
         return {"conversations": n(Conversation), "callers": n(Caller), "bookings": n(Booking), "messages": n(Message), "tool_calls": n(AuditLog),
                 "guard_blocks": blocked, "tools_denied": denied,
+                "by_channel": [{"channel": c, "count": n} for c, n in s.exec(select(Conversation.channel, func.count()).group_by(Conversation.channel)).all()],
                 "by_tool": [{"name": a, "count": b, "avg_ms": int(c or 0)} for a, b, c in by_tool], "recent": recent,
                 "system": {"llm_provider": d.st.llm_provider, "model": d.st.llm_model, "fallback": d.st.llm_fallback_model,
                            "second_provider": d.st.llm2_model if d.st.llm2_api_key else None, "calendar": d.calendar.name,

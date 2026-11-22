@@ -51,6 +51,10 @@ class Settings(BaseSettings):
     # Notifications (ntfy)
     ntfy_url: str = "https://ntfy.sh"
     ntfy_topic: str = ""
+    twilio_account_sid: str = ""
+    twilio_auth_token: str = ""  # also validates inbound webhook signatures
+    twilio_whatsapp_from: str = ""  # e.g. whatsapp:+14155238886 (Twilio sandbox)
+    whatsapp_join_code: str = ""  # sandbox "join <code>", shown on the showcase QR
     public_url: str = ""  # where the phone can reach this server (tunnel/host); used for the tap-to-open inbox link
 
     # Owner seed (used only when no owner with this handle exists yet)

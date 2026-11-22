@@ -27,6 +27,7 @@
   .item { display:flex; flex-direction:column; gap:8px; border-left:5px solid var(--acc); } .item.urgent { border-left-color:var(--bad); } .item.read { opacity:.62; border-left-color:var(--line); }
   .item .top { display:flex; align-items:center; gap:8px; flex-wrap:wrap; } .kind { font-weight:700; text-transform:capitalize; }
   .chip { font-size:12px; padding:2px 9px; border-radius:99px; background:var(--chip); color:var(--mute); } .chip.u { background:var(--badbg); color:var(--bad); font-weight:700; } .chip.b { background:var(--okbg); color:var(--ok); }
+  #live { background:var(--okbg); color:var(--ok); font-weight:700; }
   .when { margin-left:auto; color:var(--mute); font-size:12.5px; } .sum { word-wrap:break-word; }
   .row { display:flex; gap:8px; flex-wrap:wrap; } .btn { border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:10px; padding:8px 12px; font:600 14px inherit; font-family:inherit; text-decoration:none; }
   .btn.p { background:var(--acc); color:#fff; border-color:var(--acc); }
@@ -36,7 +37,7 @@
 </style>
 </head>
 <body>
-<header><h1>Gatekeeper</h1><span class="count" id="count" hidden></span><button class="btn" id="refresh" aria-label="Refresh">↻</button></header>
+<header><h1>Gatekeeper</h1><span class="chip" id="live" hidden>● live</span><span class="count" id="count" hidden></span><button class="btn" id="refresh" aria-label="Refresh">↻</button></header>
 <div id="gate" class="card" hidden><b>Owner access</b><small style="color:var(--mute)">Enter your admin token once on this phone.</small><input type="password" id="tokIn" placeholder="Admin token" autocomplete="off"><button class="btn p" id="tokGo">Open inbox</button><div class="err" id="tokErr"></div></div>
 <main id="app" hidden>
   <div class="card focus"><div class="t"><b id="fTitle">Focus mode</b><small id="fSub"></small></div><button class="sw" id="fSw" aria-label="Toggle focus mode"></button></div>
@@ -70,10 +71,11 @@ function render() {
   if (!items.length) L.append(h("div", "empty", tab === "unread" ? "Nothing new. You're all caught up." : "No messages yet."));
   items.forEach((i) => {
     const c = h("div", "card item" + (i.urgent ? " urgent" : "") + (i.read ? " read" : "")), top = h("div", "top");
-    top.append(h("span", "kind", `${ICON[i.kind] || "•"} ${i.kind}`)); if (i.urgent) top.append(h("span", "chip u", "URGENT")); if (i.caller.times_contacted > 1) top.append(h("span", "chip", `${i.caller.times_contacted}× caller`)); if (!i.delivered) top.append(h("span", "chip", "not pushed")); top.append(h("span", "when", ago(i.created)));
+    top.append(h("span", "kind", `${ICON[i.kind] || "•"} ${i.kind}`)); if (i.channel) top.append(h("span", "chip", { whatsapp: "💬 WhatsApp", voice: "🎤 voice", web: "🌐 web", email: "✉ email" }[i.channel] || i.channel)); if (i.urgent) top.append(h("span", "chip u", "URGENT")); if (i.caller.times_contacted > 1) top.append(h("span", "chip", `${i.caller.times_contacted}× caller`)); if (!i.delivered) top.append(h("span", "chip", "not pushed")); top.append(h("span", "when", ago(i.created)));
     c.append(top, h("div", "sum", i.summary));
     const row = h("div", "row"), phone = /^\+?[0-9][0-9 ()-]{6,}$/.test(i.caller.contact) ? i.caller.contact : "";
     if (phone) { const a = h("a", "btn p", "📞 Call back"); a.href = "tel:" + phone.replace(/[^0-9+]/g, ""); row.append(a); }
+    if (phone) { const a = h("a", "btn", "💬 WhatsApp"); a.href = "https://wa.me/" + phone.replace(/[^0-9]/g, ""); a.target = "_blank"; a.rel = "noopener"; row.append(a); }
     if (i.caller.email) { const a = h("a", "btn", "✉ Email"); a.href = "mailto:" + i.caller.email; row.append(a); }
     const tx = h("div", "tr"); tx.hidden = true; i.transcript.forEach((m) => { const d = h("div"); d.append(h("b", "", m.role === "agent" ? "Gatekeeper" : "Caller"), h("div", "", m.text)); tx.append(d); });
     if (i.transcript.length) { const b = h("button", "btn", "Conversation"); b.onclick = () => (tx.hidden = !tx.hidden); row.append(b); }
@@ -86,7 +88,13 @@ $("tUnread").onclick = () => { tab = "unread"; render(); }; $("tAll").onclick = 
 $("readAll").onclick = async () => { await api("/api/inbox/read", "POST"); load(); }; $("refresh").onclick = load;
 $("tokGo").onclick = async () => { TOKEN = $("tokIn").value.trim(); try { localStorage.gkadmin = TOKEN; } catch {} $("tokErr").textContent = ""; try { await api("/api/focus"); load(); } catch { $("tokErr").textContent = "Wrong token."; } };
 document.addEventListener("visibilitychange", () => { if (!document.hidden && TOKEN) load(); });
-if (TOKEN) { load(); timer = setInterval(() => !document.hidden && load(), 20000); } else $("gate").hidden = false;
+function live() {
+  if (!TOKEN || !window.EventSource) return;
+  const es = new EventSource("/api/stream?key=" + encodeURIComponent(TOKEN));
+  es.onopen = () => ($("live").hidden = false); es.onerror = () => ($("live").hidden = true);
+  es.onmessage = (m) => { const e = JSON.parse(m.data); if (["alert", "focus", "turn"].includes(e.type)) load(); if (e.type === "alert" && "vibrate" in navigator && !document.hidden) navigator.vibrate(120); };
+}
+if (TOKEN) { load(); live(); timer = setInterval(() => !document.hidden && load(), 20000); } else $("gate").hidden = false;
 </script>
 </body>
 </html>

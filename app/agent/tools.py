@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
+from app.core.bus import bus
 from app.agent.slots import compute_slots, spread
 from app.core.config import Settings
 from app.db import repo
@@ -105,6 +106,7 @@ async def alert_owner(ctx: ToolContext, kind: str, summary: str) -> None:
     text = f"{who}{reason}: {summary}"
     hold = repo.get_focus(ctx.db, ctx.owner.id) and not urgent
     alert = repo.add_alert(ctx.db, ctx.owner.id, ctx.conversation_id, ctx.caller.id, kind, text, urgent, delivered=False)
+    bus.publish({"type": "alert", "kind": kind, "urgent": urgent, "held": hold, "summary": text[:160]})
     if hold:
         return  # stays undelivered: goes out in the focus-end digest
     ok = await ctx.notifier.send(f"{'URGENT: ' if urgent else ''}Gatekeeper {kind}", text, urgent=urgent,

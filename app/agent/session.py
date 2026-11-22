@@ -6,6 +6,7 @@ from app.agent import fallbacks, prompts
 from app.agent.llm import LlamaGuard, LLM
 from app.agent.planner import Planner, TurnResult
 from app.agent.tools import ToolContext
+from app.core.bus import bus
 from app.core.config import Settings
 from app.db import repo
 from app.db.models import Caller, Owner
@@ -35,6 +36,7 @@ class CallSession:
     owner: Owner
     caller: Caller
     conversation_id: str
+    channel: str = "voice"
     role: str = "caller"  # WS sessions are always "caller"; owner role arrives in Phase 3
     history: list[dict] = field(default_factory=list)
 
@@ -75,6 +77,8 @@ class CallSession:
         r.timings["guard_ms"] = guard_ms
         r.timings["total_ms"] = int((time.monotonic() - t0) * 1000)
         repo.add_message(d.db, self.conversation_id, "agent", r.say)
+        bus.publish({"type": "turn", "channel": self.channel, "caller": self.caller.name or self.caller.contact[-4:].rjust(7, "·"),
+                     "in": text[:140], "out": r.say[:140], "flagged": any(e["type"] == "guard_flagged" for e in r.events)})
         return r
 
     def close(self, status: str = "ended") -> None:

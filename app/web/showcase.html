@@ -115,6 +115,9 @@
 
 <section id="data"><h2>Live data</h2><p class="sub">Straight from the production database: conversations, tool calls and bookings from real use.</p>
   <div class="kpis" id="dkpis"></div>
+  <div class="grid g3" style="margin-bottom:14px"><div class="card" style="grid-column:span 2"><div class="row"><h2 style="font-size:16px">Live feed</h2><span class="pill" id="liveDot">connecting…</span></div>
+    <div class="tl" id="feed" style="margin-top:10px;max-height:300px;overflow:auto"><div class="note">Messages from every channel appear here the moment they arrive.</div></div></div>
+    <div class="card" id="waCard" hidden style="text-align:center"><h2 style="font-size:16px">Message it on WhatsApp</h2><img id="waQr" alt="WhatsApp QR" style="width:170px;height:170px;margin:10px auto;display:block;background:#fff;padding:6px;border-radius:10px"><div class="note">Scan, send the pre-filled message, then chat with Gatekeeper.</div></div></div>
   <div class="grid g3"><div class="card"><h2 style="font-size:16px">Tool calls</h2><div class="bars" id="bars" style="margin-top:10px"></div></div>
   <div class="card" style="grid-column:span 2;overflow:auto"><h2 style="font-size:16px">Recent conversations</h2><table><thead><tr><th>When (UTC)</th><th>Status</th><th>Turns</th><th>Booked</th><th>Transcript</th></tr></thead><tbody id="convs"></tbody></table></div></div></section>
 </main>
@@ -197,6 +200,14 @@ function renderStats(s) {
   const b = $("bars"); b.replaceChildren(); const mx = Math.max(1, ...s.by_tool.map((t) => t.count)); s.by_tool.filter((t) => t.name).forEach((t) => { const r = h("div", "bar2"); const tr = h("div", "tr"), i = h("i"); i.style.width = (t.count / mx * 100) + "%"; tr.append(i); r.append(h("span", "", t.name), tr, h("span", "tx", `${t.count} · ${t.avg_ms}ms`)); b.append(r); }); if (!b.children.length) b.append(h("div", "note", "No tool calls yet. Make a call or use the lab."));
   const c = $("convs"); c.replaceChildren(); s.recent.forEach((r) => { const tr = h("tr"), td = h("td"); r.transcript.slice(0, 4).forEach((m) => { const l = h("div", "tx"); l.append(h("b", "", m.role + ": "), document.createTextNode(m.text)); td.append(l); }); tr.append(h("td", "", r.started.replace("T", " ").slice(0, 16)), h("td", "", r.status), h("td", "", String(r.turns)), h("td", "", String(r.booked)), td); c.append(tr); });
 }
+const CH = { whatsapp: "💬 WhatsApp", voice: "🎤 voice", web: "🌐 web", email: "✉ email" };
+function liveFeed() {
+  if (!window.EventSource || !TOKEN) return; const es = new EventSource("/api/stream?key=" + encodeURIComponent(TOKEN)), f = $("feed");
+  es.onopen = () => { $("liveDot").textContent = "● live"; $("liveDot").className = "pill ok"; }; es.onerror = () => { $("liveDot").textContent = "reconnecting…"; $("liveDot").className = "pill"; };
+  es.onmessage = (m) => { const e = JSON.parse(m.data); if (e.type !== "turn" && e.type !== "alert") return; if (f.firstChild && f.firstChild.classList.contains("note")) f.replaceChildren();
+    const row = e.type === "turn" ? ev(e.flagged ? "r" : "b", `${CH[e.channel] || e.channel} · ${e.caller}${e.flagged ? " · BLOCKED" : ""}`, h("div", "tx", "→ " + e.in), h("div", "tx", "← " + e.out)) : ev(e.urgent ? "r" : "g", `🔔 ${e.urgent ? "URGENT " : ""}${e.kind}${e.held ? " (held, focus on)" : ""}`, h("div", "tx", e.summary));
+    f.prepend(row); while (f.children.length > 30) f.lastChild.remove(); loadStats(); };
+}
 async function loadStats() { try { renderStats(await api("/stats")); } catch {} }
 
 async function boot() {
@@ -208,7 +219,8 @@ async function boot() {
       ["Ask for a 2-hour meeting (rule cap)", `I need a 2 hour meeting on ${iso}, please find slots.`], ["Ask for 6am (outside hours)", `Can you do 6am on ${iso}?`]];
     live.forEach(([n, t]) => { const o = new Option("▶ " + n, "live"); o.dataset.text = t; sel.add(o); });
     atk.forEach((a) => { const o = new Option(a.id.replace(/_/g, " ") + (a.expect_flag === false ? "  (benign)" : ""), a.id); o.dataset.text = a.text; sel.add(o); });
-    renderUC(last.use_cases); if (last.summary) renderTests(last); loadStats();
+    renderUC(last.use_cases); if (last.summary) renderTests(last); loadStats(); liveFeed();
+    fetch("/qr/whatsapp.svg").then((r) => { if (r.ok) { $("waQr").src = "/qr/whatsapp.svg"; $("waCard").hidden = false; } });
   } catch {}
 }
 if (!TOKEN) $("gate").hidden = false; else boot();

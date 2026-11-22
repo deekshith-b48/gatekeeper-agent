@@ -26,6 +26,13 @@ Setup (once):
 
 A free quick tunnel gets a new address each restart, so update `PUBLIC_URL` and your automation URLs then. For a permanent address use a named Cloudflare tunnel or Tailscale.
 
+## WhatsApp (Twilio) and live events
+Messages to your Twilio WhatsApp number reach the **same agent, tools and guard** as voice. The webhook is `POST PUBLIC_URL/webhook/whatsapp`; every request's `X-Twilio-Signature` is verified (cross-checked in tests against Twilio's own validator), retries are de-duplicated by `MessageSid`, each sender keeps a conversation, and the sender's WhatsApp number is the verified caller id (so `OWNER_VIP_CONTACTS=+91…` works; spoken claims never do). Replies go back inline; if the model is slow they are pushed over the REST API.
+
+Setup: Twilio Console → Messaging → *Try it out* → *Send a WhatsApp message* (sandbox). Put `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, the sandbox number as `TWILIO_WHATSAPP_FROM` and its join word as `WHATSAPP_JOIN_CODE` in `.env`, set `PUBLIC_URL` to your tunnel address, restart, and in the sandbox settings set *When a message comes in* to `PUBLIC_URL/webhook/whatsapp` (POST). Send `join <code>` from your WhatsApp once, then chat. The showcase shows a QR that opens WhatsApp with the join message prefilled.
+
+`GET /api/stream?key=<ADMIN_TOKEN>` is a server-sent-events feed of every turn and alert; the inbox and the showcase "Live feed" use it to update instantly.
+
 ## Live showcase for judges: `/showcase`
 Open `http://localhost:8000/showcase` (token via `?admin=<ADMIN_TOKEN>`, then stripped from the URL). It has:
 - **Test dashboard**: runs the real pytest suite on the server and shows every test by category, plus 8 use-case cards that go green only when their real tests pass. "Run incl. live LLM red-team" replays all 28 attacks against the real configured model chain.

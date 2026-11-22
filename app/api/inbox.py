@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from app.agent.alerts import flush_digest
+from app.core.bus import bus
 from app.db import repo
 from app.security.auth import require_admin, tokens_match
 
@@ -21,6 +22,8 @@ async def _set_focus(request: Request, on: bool) -> dict:
     d, o = _owner(request)
     changed = repo.set_focus(d.db, o.id, on)
     digest = await flush_digest(d.db, d.notifier, o, d.st.public_url) if (changed and not on) else 0
+    if changed:
+        bus.publish({"type": "focus", "on": on})
     return {"focus": repo.focus_info(d.db, o.id), "changed": changed, "digest_alerts": digest}
 
 

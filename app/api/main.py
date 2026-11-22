@@ -10,6 +10,7 @@ from sqlmodel import select
 
 from app.agent.llm import LlamaGuard, build_llm
 from app.agent.session import Deps
+from app.api.channels import router as channels_router
 from app.api.inbox import router as inbox_router
 from app.api.showcase import router as showcase_router
 from app.api.ws import router as ws_router
@@ -41,6 +42,8 @@ def create_app(st: Settings | None = None, deps: Deps | None = None, voice=None)
         if not st.call_token:
             log.warning("CALL_TOKEN is empty: anyone who can reach this server can start calls. Set it before exposing it (tunnel/hosting).")
         app.state.connect_limiter = RateLimiter(st.rl_connect_per_min)
+        from app.channels.whatsapp import TwilioWhatsApp, WhatsAppChannel
+        app.state.whatsapp = WhatsAppChannel(app.state.deps, st.owner_handle, TwilioWhatsApp(st.twilio_account_sid, st.twilio_auth_token, st.twilio_whatsapp_from))
         if voice is not None:
             app.state.voice = voice or None  # voice=False forces text-only mode
         else:
@@ -56,6 +59,7 @@ def create_app(st: Settings | None = None, deps: Deps | None = None, voice=None)
     app.include_router(ws_router)
     app.include_router(showcase_router)
     app.include_router(inbox_router)
+    app.include_router(channels_router)
 
     @app.get("/", include_in_schema=False)
     def web_client():  # browser client: works on laptop and phone (mic/speech handled by the browser)
@@ -94,7 +98,7 @@ def create_app(st: Settings | None = None, deps: Deps | None = None, voice=None)
         d = app.state.deps
         llm_ok = await d.llm.alive() if hasattr(d.llm, "alive") else True
         return {"ok": True, "llm": llm_ok, "calendar": d.calendar.name, "voice": app.state.voice is not None,
-                "tts": bool(app.state.voice and app.state.voice.tts), "ntfy": bool(st.ntfy_topic)}
+                "tts": bool(app.state.voice and app.state.voice.tts), "ntfy": bool(st.ntfy_topic), "whatsapp": bool(st.twilio_auth_token and st.public_url)}
 
     @app.get("/api/conversations", dependencies=[Depends(require_admin)])
     def conversations(limit: int = 50):
