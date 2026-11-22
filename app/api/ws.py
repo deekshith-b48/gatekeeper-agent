@@ -21,9 +21,13 @@ async def _send(ws: WebSocket, ev: dict) -> None:
 
 
 @router.websocket("/ws/call/{owner_handle}")
-async def call(ws: WebSocket, owner_handle: str, caller_id: str = "", token: str = "", server_tts: int = 1):
+async def call(ws: WebSocket, owner_handle: str, caller_id: str = "", token: str = "", server_tts: int = 1, dryrun: int = 0):
     app = ws.app.state
     d, st = app.deps, app.deps.st
+    if dryrun:  # demo/stage: real calendar reads, writes recorded not sent
+        import dataclasses
+        from app.providers.calendar.dryrun import DryRunCalendar
+        d = dataclasses.replace(d, calendar=DryRunCalendar(d.calendar))
     ip = ws.client.host if ws.client else "?"
     if st.call_token and not tokens_match(token, st.call_token):
         await ws.close(code=4401)
@@ -41,7 +45,8 @@ async def call(ws: WebSocket, owner_handle: str, caller_id: str = "", token: str
     sess = CallSession(d, owner, caller, conv.id, channel="voice" if server_tts else "web")
     status = "ended"
     try:
-        await _send(ws, {"type": "session_started", "conversation_id": conv.id, "voice": app.voice is not None})
+        await _send(ws, {"type": "session_started", "conversation_id": conv.id, "voice": app.voice is not None, "owner": owner.name,
+                         "focus": repo.get_focus(d.db, owner.id), "demo": bool(dryrun)})
         r = await sess.open()
         await _reply(ws, app, server_tts, r)
 

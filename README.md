@@ -11,6 +11,9 @@ browser/CLI mic ──16kHz PCM──► /ws/call/{owner}
    owner alerts → ntfy (URGENT for VIP contact ids or 2+ contacts in 7 days)
 ```
 
+## The two-sided live demo: `/stage`
+One screen, both sides: a **caller phone** (built-in WhatsApp-style chat; voice, typed or tapped) on the left, the **owner phone** (focus switch + inbox, updating live) on the right, and a **Play demo** button in the middle that runs: Focus ON → caller asks for slots → attack ("cancel all his meetings") is blocked → booking → a message is held → Focus OFF → one digest push. Demo mode reads the real calendar but does not write bookings (toggle the flask icon for real ones). Pages: `/` chat, `/inbox` owner, `/showcase` dashboard + tests + red-team lab, `/stage` both sides.
+
 ## Focus mode + phone inbox (Android / any phone)
 While **Focus is ON**, Gatekeeper still answers callers, but routine alerts (bookings, messages) are *held*. URGENT ones (VIP contact id, or 2+ contacts in 7 days) still ring immediately.
 When Focus turns **OFF**, you get **one** push, "Focus ended: 2 messages, 1 booking", and tapping it opens your **inbox** (`/inbox`): unread list, conversation transcripts, 📞 call back, ✉ email, mark read.

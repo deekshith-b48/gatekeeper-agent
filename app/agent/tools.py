@@ -177,9 +177,10 @@ async def book_meeting(ctx: ToolContext, a: BookMeetingArgs) -> dict:
     repo.update_caller(ctx.db, ctx.caller.id, a.caller_name, a.caller_email)
     ctx.caller.name = a.caller_name
     when = f"{start.astimezone(ctx.tz):%A %d %B, %H:%M}"
+    demo = "dry-run" in ctx.calendar.name
     ctx.events.append({"type": "booking_confirmed", "when": when, "timezone": ctx.owner.timezone,
-                       "event_id": event_id, "invite_sent": bool(a.caller_email)})
-    await alert_owner(ctx, "booking", f"booked '{a.title}' {when} ({ctx.owner.timezone})")
+                       "event_id": event_id, "invite_sent": bool(a.caller_email) and not demo, "demo": demo})
+    await alert_owner(ctx, "booking", f"booked '{a.title}' {when} ({ctx.owner.timezone})" + (" [demo: not written to the calendar]" if demo else ""))
     return {"ok": True, "when": when, "invite_sent": bool(a.caller_email)}
 
 

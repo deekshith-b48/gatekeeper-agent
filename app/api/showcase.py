@@ -108,6 +108,12 @@ def last_tests(request: Request):
     return getattr(request.app.state, "last_tests", None) or {"tests": [], "summary": None, "use_cases": summarize([])["use_cases"]}
 
 
+@router.get("/call-token")
+def call_token(request: Request):
+    """Lets the admin-only /stage page open the caller side without typing a second token."""
+    return {"call_token": request.app.state.deps.st.call_token}
+
+
 @router.get("/attacks")
 def attacks():
     return yaml.safe_load((ROOT / "tests" / "redteam.yaml").read_text())["cases"]

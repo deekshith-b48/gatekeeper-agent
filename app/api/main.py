@@ -6,6 +6,7 @@ from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.staticfiles import StaticFiles
 from sqlmodel import select
 
 from app.agent.llm import LlamaGuard, build_llm
@@ -69,6 +70,10 @@ def create_app(st: Settings | None = None, deps: Deps | None = None, voice=None)
     def showcase_page():
         return FileResponse(Path(__file__).resolve().parent.parent / "web" / "showcase.html", headers={"Cache-Control": "no-cache"})
 
+    @app.get("/stage", include_in_schema=False)
+    def stage_page():
+        return FileResponse(Path(__file__).resolve().parent.parent / "web" / "stage.html", headers={"Cache-Control": "no-cache"})
+
     @app.get("/inbox", include_in_schema=False)
     def inbox_page():
         return FileResponse(Path(__file__).resolve().parent.parent / "web" / "inbox.html", headers={"Cache-Control": "no-cache"})
@@ -116,6 +121,7 @@ def create_app(st: Settings | None = None, deps: Deps | None = None, voice=None)
                     "bookings": s.exec(select(Booking).where(Booking.conversation_id == cid)).all(),
                     "audit": s.exec(select(AuditLog).where(AuditLog.conversation_id == cid).order_by(AuditLog.id)).all()}
 
+    app.mount("/static", StaticFiles(directory=str(Path(__file__).resolve().parent.parent / "web")), name="static")
     return app
 
 
