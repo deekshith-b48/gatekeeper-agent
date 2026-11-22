@@ -39,3 +39,13 @@ def test_web_client_served(tmp_path):
     with TestClient(create_app(deps.st, deps, voice=False)) as c:
         r = c.get("/")
         assert r.status_code == 200 and "Gatekeeper" in r.text and "webkitSpeechRecognition" in r.text
+
+
+def test_pwa_assets_and_client_platform_handling(tmp_path):
+    deps = make_deps(tmp_path, ScriptedLLM([{"say": "x"}]))
+    with TestClient(create_app(deps.st, deps, voice=False)) as c:
+        m = c.get("/manifest.webmanifest")
+        assert m.status_code == 200 and m.json()["display"] == "standalone"
+        assert c.get("/icon.svg").headers["content-type"].startswith("image/svg")
+        html = c.get("/").text
+        assert "hidden" in html and "wakeLock" in html and "iP(hone|ad|od)" in html and 'type="password"' in html

@@ -5,7 +5,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from sqlmodel import select
 
 from app.agent.llm import LlamaGuard, build_llm
@@ -55,7 +55,20 @@ def create_app(st: Settings | None = None, deps: Deps | None = None, voice=None)
 
     @app.get("/", include_in_schema=False)
     def web_client():  # browser client: works on laptop and phone (mic/speech handled by the browser)
-        return FileResponse(Path(__file__).resolve().parent.parent / "web" / "index.html")
+        return FileResponse(Path(__file__).resolve().parent.parent / "web" / "index.html", headers={"Cache-Control": "no-cache"})
+
+    @app.get("/manifest.webmanifest", include_in_schema=False)
+    def manifest():
+        return JSONResponse({"name": "Gatekeeper", "short_name": "Gatekeeper", "start_url": "/", "display": "standalone",
+                             "background_color": "#0e1013", "theme_color": "#2563eb",
+                             "icons": [{"src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}]},
+                            media_type="application/manifest+json")
+
+    @app.get("/icon.svg", include_in_schema=False)
+    def icon():
+        svg = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#2563eb"/>'
+               '<path d="M256 128a64 64 0 0 0-64 64v64a64 64 0 0 0 128 0v-64a64 64 0 0 0-64-64zm-112 128a112 112 0 0 0 96 111v33h-32v32h96v-32h-32v-33a112 112 0 0 0 96-111h-32a80 80 0 0 1-160 0z" fill="#fff"/></svg>')
+        return Response(svg, media_type="image/svg+xml")
 
     @app.get("/healthz")
     async def healthz():
