@@ -11,6 +11,13 @@ if "--demo" in sys.argv:
     run()
     sys.exit()
 
+if "--check-calendar" in sys.argv:  # no Anthropic key needed: verifies OAuth + freebusy only (reads no event details)
+    from datetime import datetime, timedelta, timezone
+    from .calendar import GoogleCalendar
+    now = datetime.now(timezone.utc)
+    print(f"OK: Google Calendar connected; {len(GoogleCalendar().busy(now, now + timedelta(days=7)))} busy blocks in the next 7 days.")
+    sys.exit()
+
 if not os.environ.get("ANTHROPIC_API_KEY"):
     sys.exit("ANTHROPIC_API_KEY is not set. Add it to .env (see .env.example), or try `python -m gatekeeper --demo` (no key needed).")
 
