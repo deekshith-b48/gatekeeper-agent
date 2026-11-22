@@ -85,6 +85,10 @@ def create_app(st: Settings | None = None, deps: Deps | None = None, voice=None)
 
 def run():  # `python -m app.api.main`
     import uvicorn
+    st = get_settings()
+    if st.llm_provider == "openai" and not st.llm_api_key:
+        raise SystemExit("LLM_API_KEY is empty in .env. Get a free key (e.g. console.groq.com), save it there, and retry. "
+                         "Or set LLM_PROVIDER=ollama for local models.")
     uvicorn.run("app.api.main:create_app", factory=True, host="0.0.0.0", port=8000)
 
 
