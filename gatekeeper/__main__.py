@@ -11,6 +11,9 @@ if "--demo" in sys.argv:
     run()
     sys.exit()
 
+if not os.environ.get("ANTHROPIC_API_KEY"):
+    sys.exit("ANTHROPIC_API_KEY is not set. Add it to .env (see .env.example), or try `python -m gatekeeper --demo` (no key needed).")
+
 from .agent import run
 
 try:
