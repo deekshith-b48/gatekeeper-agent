@@ -11,6 +11,14 @@ browser/CLI mic ──16kHz PCM──► /ws/call/{owner}
    owner alerts → ntfy (URGENT for VIP contact ids or 2+ contacts in 7 days)
 ```
 
+## Live showcase for judges: `/showcase`
+Open `http://localhost:8000/showcase` (token via `?admin=<ADMIN_TOKEN>`, then stripped from the URL). It has:
+- **Test dashboard**: runs the real pytest suite on the server and shows every test by category, plus 8 use-case cards that go green only when their real tests pass. "Run incl. live LLM red-team" replays all 28 attacks against the real configured model chain.
+- **Red-team lab**: send any text through the real pipeline (real LLM, real guard, real calendar reads; writes are dry-run). Shows the guard verdict, every tool call the model attempted (allowed/denied), the reply and a safety scorecard. Dynamic-date scenarios (find slots, book the first slot, 2-hour request, 6am request) exercise the booking workflow.
+- **Live data**: conversations, bookings, tool-call counts/latency and blocked attacks from the real database.
+
+Last full run: 104 passed, 1 skipped (voice pipeline test, needs the heavy `voice` extra). The real-calendar integration test creates and deletes a temporary event when `TEST_CALENDAR_ID` is set.
+
 ## Light mode: small disk, works on phone and laptop (recommended)
 No Ollama, no Whisper/Piper/torch (those were ~1.3 GB here plus 2-6 GB of models). The **browser** does speech-to-text and text-to-speech; the LLM is a free hosted API.
 

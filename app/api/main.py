@@ -10,6 +10,7 @@ from sqlmodel import select
 
 from app.agent.llm import LlamaGuard, build_llm
 from app.agent.session import Deps
+from app.api.showcase import router as showcase_router
 from app.api.ws import router as ws_router
 from app.core.config import Settings, get_settings
 from app.core.logging import setup_logging
@@ -52,10 +53,15 @@ def create_app(st: Settings | None = None, deps: Deps | None = None, voice=None)
 
     app = FastAPI(title="Gatekeeper", lifespan=lifespan)
     app.include_router(ws_router)
+    app.include_router(showcase_router)
 
     @app.get("/", include_in_schema=False)
     def web_client():  # browser client: works on laptop and phone (mic/speech handled by the browser)
         return FileResponse(Path(__file__).resolve().parent.parent / "web" / "index.html", headers={"Cache-Control": "no-cache"})
+
+    @app.get("/showcase", include_in_schema=False)
+    def showcase_page():
+        return FileResponse(Path(__file__).resolve().parent.parent / "web" / "showcase.html", headers={"Cache-Control": "no-cache"})
 
     @app.get("/manifest.webmanifest", include_in_schema=False)
     def manifest():

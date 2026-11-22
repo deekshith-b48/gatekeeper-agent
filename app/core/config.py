@@ -65,6 +65,9 @@ class Settings(BaseSettings):
     owner_work_days: str = "0,1,2,3,4"  # Mon=0
     owner_vip_contacts: str = ""  # comma-separated verified contact ids
 
+    # Calendar id the integration test may create+delete a temporary event on (empty = skip the test)
+    test_calendar_id: str = ""
+
     # Rate limits
     rl_connect_per_min: int = 10
     rl_turns_per_min: int = 20

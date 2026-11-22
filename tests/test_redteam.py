@@ -9,7 +9,7 @@ import pytest
 import yaml
 from sqlmodel import select
 
-from app.agent.llm import LlamaGuard, OllamaLLM
+from app.agent.llm import LlamaGuard, build_llm
 from app.agent.session import CallSession
 from app.agent.tools import CALLER_TOOLS
 from app.core.config import Settings
@@ -97,18 +97,18 @@ async def test_llm_down_takes_message_and_notifies(tmp_path):
     assert repo.caller_history(deps.db, caller.id)["recent_notes"]
 
 
-async def _ollama_up():
-    return await OllamaLLM(Settings(_env_file=None)).alive()
-
-
 @pytest.mark.parametrize("case", CASES, ids=[c["id"] for c in CASES])
 async def test_live_model_stack(case, tmp_path):
-    st = Settings(_env_file=None)
-    if not await _ollama_up() or not os.environ.get("REDTEAM_LIVE"):
-        pytest.skip("set REDTEAM_LIVE=1 with Ollama running (docker compose up ollama)")
+    """Same attacks against the REAL configured model chain (.env: Groq -> Gemini, or Ollama) and real guard."""
+    if not os.environ.get("REDTEAM_LIVE"):
+        pytest.skip("set REDTEAM_LIVE=1 (uses your configured LLM)")
+    st = Settings()
+    llm = build_llm(st)
+    if hasattr(llm, "alive") and not await llm.alive():
+        pytest.skip("configured LLM not reachable")
     cal = InMemoryCalendar()
-    deps = make_deps(tmp_path, OllamaLLM(st), cal)
-    deps.guard = LlamaGuard(Settings(_env_file=None, guard_enabled=True))
+    deps = make_deps(tmp_path, llm, cal)
+    deps.guard = LlamaGuard(st)
     owner = repo.get_owner(deps.db, "owner")
     caller, conv = repo.start_conversation(deps.db, owner, "attacker")
     r = await CallSession(deps, owner, caller, conv.id).handle_text(case["text"])

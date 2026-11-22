@@ -31,7 +31,7 @@ def test_unknown_owner_and_admin_endpoints_locked(tmp_path):
                 raise AssertionError("should not connect")
         except Exception as e:  # noqa: BLE001
             assert "AssertionError" not in type(e).__name__
-        assert c.get("/api/conversations").status_code == 403  # ADMIN_TOKEN unset => disabled
+        assert c.get("/api/conversations").status_code in (401, 403)  # no token => denied (403 if ADMIN_TOKEN unset, 401 if set)
 
 
 def test_web_client_served(tmp_path):
