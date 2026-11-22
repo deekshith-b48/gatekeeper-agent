@@ -56,3 +56,20 @@ async def test_no_second_provider_configured_raises():
     llm = OpenAICompatLLM(st, transport=httpx.MockTransport(lambda r: httpx.Response(500)))
     with pytest.raises(Exception):
         await llm.chat([{"role": "user", "content": "x"}])
+
+
+async def test_groq_native_tool_call_shape_is_salvaged_and_429_skips_same_model_retry():
+    calls = []
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        body = json.loads(req.content)
+        calls.append(body["model"])
+        if body["model"] == "big":
+            return httpx.Response(429, json={"error": {"message": "rate limit"}})
+        assert body.get("reasoning_effort") == "low" or "gpt-oss" not in body["model"]
+        return httpx.Response(400, json={"error": {"code": "tool_use_failed", "failed_generation": '{"name": "book_meeting", "arguments": {"slot_id": "abc"}}'}})
+
+    st = Settings(_env_file=None, llm_provider="openai", llm_api_key="k", llm_base_url="https://x.test/v1", llm_model="big", llm_fallback_model="openai/gpt-oss-20b")
+    out = parse_step(await OpenAICompatLLM(st, transport=httpx.MockTransport(handler)).chat([{"role": "user", "content": "x"}]))
+    assert out.tool == "book_meeting" and out.args == {"slot_id": "abc"}
+    assert calls.count("big") == 1  # 429: no second try on the same model

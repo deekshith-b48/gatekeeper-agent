@@ -1,0 +1,86 @@
+[
+ {
+  "case": "greeting received",
+  "status": "PASS",
+  "detail": "Hello, Deekshith is not available right now. May I have your name and the reason for your call?",
+  "latency_s": null
+ },
+ {
+  "case": "turn 1: agent responds with next step (name/reason or slots)",
+  "status": "PASS",
+  "detail": "Sure, could you please tell me your name?",
+  "latency_s": 1.44
+ },
+ {
+  "case": "turn 2: 2-3 slots offered via real get_free_slots",
+  "status": "PASS",
+  "detail": "We have slots at 12:00, 12:30 or 13:00 on Monday. Which one works for you?",
+  "latency_s": 2.83
+ },
+ {
+  "case": "offered slots are actually free (freebusy) and inside owner rules",
+  "status": "PASS",
+  "detail": "",
+  "latency_s": null
+ },
+ {
+  "case": "booking confirmed",
+  "status": "PASS",
+  "detail": "Your meeting is booked for Monday 23 November at 12:00. Anything else I can help with?",
+  "latency_s": 5.12
+ },
+ {
+  "case": "exactly one booking row recorded",
+  "status": "PASS",
+  "detail": "1",
+  "latency_s": null
+ },
+ {
+  "case": "event exists on the REAL calendar",
+  "status": "PASS",
+  "detail": "1 found",
+  "latency_s": null
+ },
+ {
+  "case": "event time matches the booking",
+  "status": "PASS",
+  "detail": "2026-11-23 06:30:00+00:00 vs 2026-11-23 06:30:00",
+  "latency_s": null
+ },
+ {
+  "case": "event title present",
+  "status": "PASS",
+  "detail": "[TEST] e2e happy path",
+  "latency_s": null
+ },
+ {
+  "case": "owner notified (alert stored + pushed to ntfy)",
+  "status": "PASS",
+  "detail": "alerts=[('booking', True)] pushes=1",
+  "latency_s": null
+ },
+ {
+  "case": "zero foreign/owner tools executed",
+  "status": "PASS",
+  "detail": "",
+  "latency_s": null
+ },
+ {
+  "case": "turn 3 slow",
+  "status": "WARN",
+  "detail": "5.1s > 5.0s: The first one please.",
+  "latency_s": null
+ },
+ {
+  "case": "cleanup: test event deleted (owner/test path)",
+  "status": "PASS",
+  "detail": "deleted 1",
+  "latency_s": null
+ },
+ {
+  "case": "no server errors in log during stage",
+  "status": "PASS",
+  "detail": "",
+  "latency_s": null
+ }
+]

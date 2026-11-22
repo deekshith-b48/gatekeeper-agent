@@ -1,4 +1,5 @@
 """Role-based tool registry. A role can only ever resolve tools in ITS registry; the model is only shown those."""
+import asyncio
 import json
 import re
 import time
@@ -10,6 +11,7 @@ from zoneinfo import ZoneInfo
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from app.core.bus import bus
+from app.security.guards import rule_check
 from app.agent.slots import compute_slots, spread
 from app.core.config import Settings
 from app.db import repo
@@ -24,6 +26,20 @@ CTRL = re.compile(r"[\x00-\x1f\x7f]")
 
 def clean(s: str, n: int) -> str:
     return CTRL.sub(" ", s).strip()[:n]
+
+
+NAME_RX = re.compile(r"^[\w .,'&()\-]{1,60}$")
+TITLE_RX = re.compile(r"^[\w .,'&()\[\]\-/]{1,100}$")
+MAX_PER_CALL, MAX_PER_DAY = 2, 3
+_book_lock = asyncio.Lock()  # check-then-insert must be atomic or two callers can take the same slot
+
+
+def _plain(v: str, rx: re.Pattern, what: str) -> str:
+    """Names/titles end up in the calendar, alerts and logs: only plain text, never instructions."""
+    v = clean(v, 100)
+    if not rx.match(v) or rule_check(v, 200).flagged:
+        raise ValueError(f"{what} must be plain text (letters, numbers, spaces)")
+    return v
 
 
 @dataclass
@@ -60,10 +76,15 @@ class BookMeetingArgs(_Strict):
     caller_name: str = Field(min_length=1, max_length=80)
     caller_email: str | None = None
 
-    @field_validator("title", "caller_name")
+    @field_validator("title")
     @classmethod
-    def _c(cls, v):
-        return clean(v, 100)
+    def _t(cls, v):
+        return _plain(v, TITLE_RX, "title")
+
+    @field_validator("caller_name")
+    @classmethod
+    def _n(cls, v):
+        return _plain(v, NAME_RX, "caller_name")
 
     @field_validator("caller_email")
     @classmethod
@@ -83,7 +104,7 @@ class TakeMessageArgs(_Strict):
     @field_validator("caller_name")
     @classmethod
     def _n(cls, v):
-        return clean(v, 80) or None if v else None
+        return _plain(v, NAME_RX, "caller_name") if v else None
 
     @field_validator("text")
     @classmethod
@@ -154,6 +175,13 @@ async def get_free_slots(ctx: ToolContext, a: GetFreeSlotsArgs) -> dict:
 
 
 async def book_meeting(ctx: ToolContext, a: BookMeetingArgs) -> dict:
+    if len(repo.bookings_in_conversation(ctx.db, ctx.conversation_id)) >= MAX_PER_CALL or repo.recent_bookings_by_caller(ctx.db, ctx.caller.id, 24) >= MAX_PER_DAY:
+        return {"error": "booking limit reached for this caller; offer to take a message instead"}
+    async with _book_lock:
+        return await _book_locked(ctx, a)
+
+
+async def _book_locked(ctx: ToolContext, a: BookMeetingArgs) -> dict:
     offer = repo.get_offer(ctx.db, ctx.conversation_id, a.slot_id)
     if not offer:
         return {"error": "unknown, expired or already used slot_id; call get_free_slots and use a slot_id it returned"}

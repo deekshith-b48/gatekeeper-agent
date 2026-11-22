@@ -272,3 +272,14 @@ def mark_read(db: Database, owner_id: str, alert_id: int | None = None) -> int:
             s.add(a)
         s.commit()
         return len(rows)
+
+
+def bookings_in_conversation(db: Database, conversation_id: str) -> list:
+    with db.session() as s:
+        return list(s.exec(select(Booking).where(Booking.conversation_id == conversation_id, Booking.status == "confirmed")).all())
+
+
+def recent_bookings_by_caller(db: Database, caller_id: str, hours: int = 24) -> int:
+    with db.session() as s:
+        convs = s.exec(select(Conversation.id).where(Conversation.caller_id == caller_id, Conversation.started_at >= utcnow() - timedelta(hours=hours))).all()
+        return len(s.exec(select(Booking.id).where(Booking.conversation_id.in_(convs), Booking.status == "confirmed")).all()) if convs else 0

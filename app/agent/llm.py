@@ -61,6 +61,10 @@ class OllamaLLM:
             return False
 
 
+class PermanentLLMError(Exception):
+    """4xx other than 429: retrying the same request cannot help; move on to the next model."""
+
+
 class OpenAICompatLLM:
     """Any OpenAI-compatible chat API (Groq, Gemini's OpenAI endpoint, OpenRouter, ...). JSON mode, same planner contract."""
 
@@ -75,26 +79,46 @@ class OpenAICompatLLM:
     async def _once(self, model: str, messages: list[dict], base: str | None = None, key: str | None = None) -> str:
         async with self._client(self.st.llm_timeout_s, key or self.st.llm_api_key) as c:
             r = await c.post(f"{(base or self.st.llm_base_url).rstrip('/')}/chat/completions", json={
-                "model": model, "messages": messages, "temperature": 0.2, "max_tokens": 300,
-                "response_format": {"type": "json_object"}})
-            r.raise_for_status()
+                "model": model, "messages": messages, "temperature": 0.2, "max_tokens": 400,
+                "response_format": {"type": "json_object"},
+                **({"reasoning_effort": "low"} if "gpt-oss" in model else {})})  # fewer hidden reasoning tokens: faster, less TPM
+            if r.status_code >= 400:
+                body = r.text[:400].replace("\n", " ")
+                log.warning("LLM %s -> HTTP %d: %s", model, r.status_code, body)
+                try:  # Groq json mode: the model's invalid-JSON attempt comes back in failed_generation, often fixable
+                    fg = r.json()["error"].get("failed_generation")
+                    if fg:
+                        try:
+                            parse_step(fg)
+                            return fg
+                        except Exception:  # noqa: BLE001
+                            j = json.loads(fg)  # gpt-oss sometimes emits its native {"name","arguments"} tool-call shape
+                            if isinstance(j, dict) and "name" in j and isinstance(j.get("arguments"), dict):
+                                out = json.dumps({"tool": j["name"], "args": j["arguments"]})
+                                parse_step(out)
+                                return out
+                except Exception:  # noqa: BLE001
+                    pass
+                if r.status_code < 500:  # incl. 429: go straight to the next model instead of hammering a rate-limited one
+                    raise PermanentLLMError(f"HTTP {r.status_code}")
+                r.raise_for_status()
             return r.json()["choices"][0]["message"]["content"]
 
     async def chat(self, messages: list[dict]) -> str:
         try:
             return await call_with_retry(lambda: self._once(self.st.llm_model, messages),
-                                         timeout=self.st.llm_timeout_s + 5, retries=1, breaker=self.breaker)
+                                         timeout=self.st.llm_timeout_s + 5, retries=1, breaker=self.breaker, no_retry=(PermanentLLMError,))
         except Exception as e:  # noqa: BLE001
             log.warning("primary model %s failed (%r); trying fallback %s", self.st.llm_model, e, self.st.llm_fallback_model)
         try:
             return await call_with_retry(lambda: self._once(self.st.llm_fallback_model, messages),
-                                         timeout=self.st.llm_timeout_s + 5, retries=1)
+                                         timeout=self.st.llm_timeout_s + 5, retries=1, no_retry=(PermanentLLMError,))
         except Exception as e:  # noqa: BLE001
             if not self.st.llm2_api_key:
                 raise
             log.warning("fallback model %s failed (%r); trying second provider %s", self.st.llm_fallback_model, e, self.st.llm2_model)
         return await call_with_retry(lambda: self._once(self.st.llm2_model, messages, self.st.llm2_base_url, self.st.llm2_api_key),
-                                     timeout=self.st.llm_timeout_s + 5, retries=1)
+                                     timeout=self.st.llm_timeout_s + 5, retries=1, no_retry=(PermanentLLMError,))
 
     async def alive(self) -> bool:
         return bool(self.st.llm_api_key)  # don't spend quota on health checks

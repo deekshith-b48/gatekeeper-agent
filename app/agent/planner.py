@@ -22,6 +22,13 @@ def wrap_untrusted(text: str) -> str:
     return f"<caller_speech>{html.escape(text, quote=False)}</caller_speech>"
 
 
+def caller_record(h: dict) -> str:
+    """What we remember about this caller, as quoted DATA (names/notes were written by earlier callers: never in the system role)."""
+    safe = {"name": html.escape(h["name"] or "")[:60] or None, "times_contacted": h["times_contacted"], "past_bookings": h["past_bookings"],
+            "recent_notes": [html.escape(n)[:120] for n in h["recent_notes"]]}
+    return f"<caller_record>{json.dumps(safe)}</caller_record>"
+
+
 @dataclass
 class TurnResult:
     say: str
@@ -37,7 +44,8 @@ class Planner:
     async def run_turn(self, ctx: ToolContext, history: list[dict], user_text: str | None, hint: str | None = None) -> TurnResult:
         """history: prior {role, content} messages (mutated: this turn is appended)."""
         t0 = time.monotonic()
-        system = prompts.caller_system_prompt(ctx.owner, ctx.now_fn().astimezone(ctx.tz), repo.caller_history(ctx.db, ctx.caller.id), repo.get_focus(ctx.db, ctx.owner.id))
+        system = prompts.caller_system_prompt(ctx.owner, ctx.now_fn().astimezone(ctx.tz), repo.get_focus(ctx.db, ctx.owner.id))
+        record = caller_record(repo.caller_history(ctx.db, ctx.caller.id))
         if user_text is not None:
             history.append({"role": "user", "content": wrap_untrusted(user_text)})
         if hint:
@@ -53,7 +61,7 @@ class Planner:
             return TurnResult(say, ctx.events[:], {"llm_ms": llm_ms, "turn_ms": int((time.monotonic() - t0) * 1000)}, ok)
 
         for _ in range(MAX_STEPS):
-            msgs = [{"role": "system", "content": system}, *history, *scratch]
+            msgs = [{"role": "system", "content": system}, {"role": "user", "content": record}, *history, *scratch]
             t1 = time.monotonic()
             try:
                 raw = await self.llm.chat(msgs)
