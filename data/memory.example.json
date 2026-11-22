@@ -1,0 +1,4 @@
+{
+  "rules": {"earliest_hour": 11, "latest_hour": 18, "max_minutes": 30, "vips": ["manager"]},
+  "callers": {}
+}
