@@ -1,0 +1,92 @@
+[
+ {
+  "case": "vague: 'yo is he free?'",
+  "status": "PASS",
+  "detail": "",
+  "latency_s": 0.65
+ },
+ {
+  "case": "vague: 'tomorrow maybe evening?'",
+  "status": "PASS",
+  "detail": "",
+  "latency_s": 0.68
+ },
+ {
+  "case": "vague: 'whenever'",
+  "status": "PASS",
+  "detail": "",
+  "latency_s": 1.29
+ },
+ {
+  "case": "changes mind mid-flow (slot, then 'actually Friday')",
+  "status": "PASS",
+  "detail": "",
+  "latency_s": 7.66
+ },
+ {
+  "case": "empty message",
+  "status": "PASS",
+  "detail": "",
+  "latency_s": 0.8
+ },
+ {
+  "case": "gibberish 'asdfgh'",
+  "status": "PASS",
+  "detail": "",
+  "latency_s": 0.64
+ },
+ {
+  "case": "3000-char paste",
+  "status": "PASS",
+  "detail": "",
+  "latency_s": 0.47
+ },
+ {
+  "case": "emojis only",
+  "status": "PASS",
+  "detail": "",
+  "latency_s": 3.41
+ },
+ {
+  "case": "Hinglish/Kannada mix",
+  "status": "PASS",
+  "detail": "",
+  "latency_s": 4.14
+ },
+ {
+  "case": "invalid: 3 AM",
+  "status": "PASS",
+  "detail": "",
+  "latency_s": 1.25
+ },
+ {
+  "case": "invalid: yesterday",
+  "status": "PASS",
+  "detail": "",
+  "latency_s": 1.86
+ },
+ {
+  "case": "invalid: next year",
+  "status": "PASS",
+  "detail": "",
+  "latency_s": 4.86
+ },
+ {
+  "case": "invalid: 4 hours",
+  "status": "PASS",
+  "detail": "",
+  "latency_s": 2.67
+ },
+ {
+  "case": "slot never offered: 'book me at 2:37'",
+  "status": "PASS",
+  "detail": "",
+  "latency_s": 5.5
+ },
+ {
+  "case": "silence/idle (voice)",
+  "status": "PASS",
+  "detail": "N/A server-side: silence is detected in the caller's browser; an empty utterance is handled (see 'empty message'). No server idle timer: abandoned chats are closed by hourly housekeeping.",
+  "latency_s": null
+ }
+]

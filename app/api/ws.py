@@ -29,6 +29,9 @@ async def call(ws: WebSocket, owner_handle: str, caller_id: str = "", token: str
         from app.providers.calendar.dryrun import DryRunCalendar
         d = dataclasses.replace(d, calendar=DryRunCalendar(d.calendar))
     ip = ws.client.host if ws.client else "?"
+    if ip in ("127.0.0.1", "::1"):  # behind a tunnel/proxy on this machine: the real visitor is in the forwarded header
+        ip = ws.headers.get("cf-connecting-ip") or ws.headers.get("x-forwarded-for", ip).split(",")[0].strip() or ip
+    await ws.accept()  # accept first so the browser receives our close code (4401/4404/4429) instead of an opaque 403
     if st.call_token and not tokens_match(token, st.call_token):
         await ws.close(code=4401)
         return
@@ -39,7 +42,6 @@ async def call(ws: WebSocket, owner_handle: str, caller_id: str = "", token: str
     if not owner:
         await ws.close(code=4404)
         return
-    await ws.accept()
     # caller_id is a channel-level identifier (phone, device id). Spoken claims never set it.
     caller, conv = repo.start_conversation(d.db, owner, caller_id or f"anon-{uuid.uuid4().hex[:12]}", channel="voice" if server_tts else "web")
     sess = CallSession(d, owner, caller, conv.id, channel="voice" if server_tts else "web")

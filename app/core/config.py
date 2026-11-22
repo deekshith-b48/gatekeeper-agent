@@ -74,7 +74,7 @@ class Settings(BaseSettings):
     test_calendar_id: str = ""
 
     # Rate limits
-    rl_connect_per_min: int = 10
+    rl_connect_per_min: int = 30  # per visitor IP (real IP via CF-Connecting-IP behind the tunnel)
     rl_turns_per_min: int = 20
 
 

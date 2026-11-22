@@ -26,11 +26,14 @@ def test_ws_text_call_end_to_end(tmp_path):
 def test_unknown_owner_and_admin_endpoints_locked(tmp_path):
     deps = make_deps(tmp_path, ScriptedLLM([{"say": "x"}]))
     with TestClient(create_app(deps.st, deps, voice=False)) as c:
-        try:
-            with c.websocket_connect("/ws/call/nobody"):
-                raise AssertionError("should not connect")
-        except Exception as e:  # noqa: BLE001
-            assert "AssertionError" not in type(e).__name__
+        with c.websocket_connect("/ws/call/nobody") as ws:  # accepted, then closed with 4404 so the browser can say "Unknown owner"
+            try:
+                ws.receive_text()
+                raise AssertionError("should have been closed")
+            except AssertionError:
+                raise
+            except Exception as e:  # noqa: BLE001
+                assert getattr(e, "code", None) == 4404
         assert c.get("/api/conversations").status_code in (401, 403)  # no token => denied (403 if ADMIN_TOKEN unset, 401 if set)
 
 
@@ -49,3 +52,14 @@ def test_pwa_assets_and_client_platform_handling(tmp_path):
         assert c.get("/icon.svg").headers["content-type"].startswith("image/svg")
         html = c.get("/").text
         assert "hidden" in html and "wakeLock" in html and "iP(hone|ad|od)" in html and 'type="password"' in html
+
+
+def test_ws_rejections_are_delivered_as_close_codes_not_opaque_403(tmp_path):
+    deps = make_deps(tmp_path, ScriptedLLM([{"say": "x"}]), call_token="tok")
+    with TestClient(create_app(deps.st, deps, voice=False)) as c:
+        for url, code in [("/ws/call/owner?token=bad", 4401), ("/ws/call/nobody?token=tok", 4404)]:
+            with c.websocket_connect(url) as ws:
+                try:
+                    ws.receive_text()
+                except Exception as e:  # noqa: BLE001
+                    assert getattr(e, "code", None) == code
