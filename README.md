@@ -11,6 +11,21 @@ browser/CLI mic ──16kHz PCM──► /ws/call/{owner}
    owner alerts → ntfy (URGENT for VIP contact ids or 2+ contacts in 7 days)
 ```
 
+## Focus mode + phone inbox (Android / any phone)
+While **Focus is ON**, Gatekeeper still answers callers, but routine alerts (bookings, messages) are *held*. URGENT ones (VIP contact id, or 2+ contacts in 7 days) still ring immediately.
+When Focus turns **OFF**, you get **one** push, "Focus ended: 2 messages, 1 booking", and tapping it opens your **inbox** (`/inbox`): unread list, conversation transcripts, 📞 call back, ✉ email, mark read.
+
+Setup (once):
+1. Install the **ntfy** app and subscribe to your `NTFY_TOPIC`.
+2. Set `PUBLIC_URL` in `.env` to the address your phone reaches (the tunnel URL) so the push can open the inbox.
+3. On the phone open `PUBLIC_URL/inbox?admin=<ADMIN_TOKEN>` once, then browser menu → *Install app / Add to Home screen*. The token is stored on that phone only.
+4. Turn focus on/off, either:
+   - **Manually:** the switch at the top of the inbox.
+   - **Automatically with your phone's Focus / Do Not Disturb:** in MacroDroid, Tasker or HTTP Shortcuts, trigger on "Do Not Disturb turns on/off" and make an HTTP GET to
+     `PUBLIC_URL/hook/focus/on?key=<ADMIN_TOKEN>` (and `/off`). `toggle` also works. Whether your phone's own Focus mode can trigger an automation depends on the phone and app; Do Not Disturb is the most widely supported trigger.
+
+A free quick tunnel gets a new address each restart, so update `PUBLIC_URL` and your automation URLs then. For a permanent address use a named Cloudflare tunnel or Tailscale.
+
 ## Live showcase for judges: `/showcase`
 Open `http://localhost:8000/showcase` (token via `?admin=<ADMIN_TOKEN>`, then stripped from the URL). It has:
 - **Test dashboard**: runs the real pytest suite on the server and shows every test by category, plus 8 use-case cards that go green only when their real tests pass. "Run incl. live LLM red-team" replays all 28 attacks against the real configured model chain.

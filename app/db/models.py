@@ -27,6 +27,8 @@ class Owner(SQLModel, table=True):
     buffer_min: int = 10
     work_days: str = "0,1,2,3,4"
     vip_contacts: str = ""  # comma-separated, matched on verified contact id only
+    focus_on: bool = False
+    focus_since: NaiveDatetime | None = None
 
 
 class Caller(SQLModel, table=True):
@@ -96,4 +98,18 @@ class AuditLog(SQLModel, table=True):
     result: str = ""
     error: str = ""
     latency_ms: int = 0
+    created_at: NaiveDatetime = Field(default_factory=utcnow)
+
+
+class Alert(SQLModel, table=True):
+    """Everything the owner should know. Held while focus is ON (unless urgent), delivered as one digest when focus ends."""
+    id: int | None = Field(default=None, primary_key=True)
+    owner_id: str = Field(index=True)
+    conversation_id: str = Field(index=True)
+    caller_id: str = ""
+    kind: str  # booking | message | calendar down | agent down
+    summary: str
+    urgent: bool = False
+    delivered: bool = False  # pushed to the phone
+    read: bool = False  # seen in the inbox
     created_at: NaiveDatetime = Field(default_factory=utcnow)

@@ -6,7 +6,7 @@ from sqlalchemy import event
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from app.core.config import Settings
-from app.db.models import (AuditLog, Booking, Caller, Conversation, Memory, Message, Owner,
+from app.db.models import (Alert, AuditLog, Booking, Caller, Conversation, Memory, Message, Owner,
                            SlotOffer, utcnow)
 
 
@@ -22,6 +22,18 @@ class Database:
                 conn.execute("PRAGMA journal_mode=WAL")
                 conn.execute("PRAGMA busy_timeout=5000")
         SQLModel.metadata.create_all(self.engine)
+        if url.startswith("sqlite"):
+            self._migrate()
+
+    def _migrate(self) -> None:
+        """create_all never alters existing tables; add columns introduced after a DB was first created."""
+        add = {"owner": {"focus_on": "BOOLEAN DEFAULT 0", "focus_since": "DATETIME"}}
+        with self.engine.begin() as c:
+            for table, cols in add.items():
+                have = {r[1] for r in c.exec_driver_sql(f"PRAGMA table_info({table})")}
+                for name, ddl in cols.items():
+                    if name not in have:
+                        c.exec_driver_sql(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}")
 
     @contextmanager
     def session(self):
@@ -180,3 +192,82 @@ def housekeeping(db: Database) -> dict:
             s.add(c)
         s.commit()
         return {"offers_deleted": len(gone), "abandoned": len(stale)}
+
+
+# ---------- focus mode + alert inbox ----------
+def get_focus(db: Database, owner_id: str) -> bool:
+    with db.session() as s:
+        o = s.get(Owner, owner_id)
+        return bool(o and o.focus_on)
+
+
+def set_focus(db: Database, owner_id: str, on: bool) -> bool:
+    """Returns True if the state actually changed."""
+    with db.session() as s:
+        o = s.get(Owner, owner_id)
+        if not o or bool(o.focus_on) == on:
+            return False
+        o.focus_on, o.focus_since = on, (utcnow() if on else None)
+        s.add(o)
+        s.commit()
+        return True
+
+
+def focus_info(db: Database, owner_id: str) -> dict:
+    with db.session() as s:
+        o = s.get(Owner, owner_id)
+        return {"on": bool(o.focus_on), "since": o.focus_since.isoformat(timespec="seconds") + "Z" if o.focus_since else None}
+
+
+def add_alert(db: Database, owner_id: str, conversation_id: str, caller_id: str, kind: str, summary: str,
+              urgent: bool, delivered: bool) -> Alert:
+    with db.session() as s:
+        a = Alert(owner_id=owner_id, conversation_id=conversation_id, caller_id=caller_id, kind=kind,
+                  summary=summary[:500], urgent=urgent, delivered=delivered)
+        s.add(a)
+        s.commit()
+        return a
+
+
+def undelivered_alerts(db: Database, owner_id: str) -> list[Alert]:
+    with db.session() as s:
+        return list(s.exec(select(Alert).where(Alert.owner_id == owner_id, Alert.delivered == False)  # noqa: E712
+                           .order_by(Alert.id)).all())
+
+
+def mark_delivered(db: Database, ids: list[int]) -> None:
+    with db.session() as s:
+        for a in s.exec(select(Alert).where(Alert.id.in_(ids))).all():
+            a.delivered = True
+            s.add(a)
+        s.commit()
+
+
+def list_alerts(db: Database, owner_id: str, unread_only: bool = False, limit: int = 100) -> list[dict]:
+    with db.session() as s:
+        q = select(Alert).where(Alert.owner_id == owner_id)
+        if unread_only:
+            q = q.where(Alert.read == False)  # noqa: E712
+        out = []
+        for a in s.exec(q.order_by(Alert.id.desc()).limit(limit)).all():
+            c = s.get(Caller, a.caller_id) if a.caller_id else None
+            msgs = s.exec(select(Message).where(Message.conversation_id == a.conversation_id).order_by(Message.id)).all()
+            out.append({"id": a.id, "kind": a.kind, "summary": a.summary, "urgent": a.urgent, "delivered": a.delivered, "read": a.read,
+                        "created": a.created_at.isoformat(timespec="seconds") + "Z", "conversation_id": a.conversation_id,
+                        "caller": {"name": c.name if c else "", "contact": c.contact if c else "", "email": c.email if c else "",
+                                   "times_contacted": c.contact_count if c else 0},
+                        "transcript": [{"role": m.role, "text": m.text[:400]} for m in msgs[:30]]})
+        return out
+
+
+def mark_read(db: Database, owner_id: str, alert_id: int | None = None) -> int:
+    with db.session() as s:
+        q = select(Alert).where(Alert.owner_id == owner_id, Alert.read == False)  # noqa: E712
+        if alert_id is not None:
+            q = q.where(Alert.id == alert_id)
+        rows = s.exec(q).all()
+        for a in rows:
+            a.read = True
+            s.add(a)
+        s.commit()
+        return len(rows)

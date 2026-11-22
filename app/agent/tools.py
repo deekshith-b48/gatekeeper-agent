@@ -77,6 +77,12 @@ class BookMeetingArgs(_Strict):
 
 class TakeMessageArgs(_Strict):
     text: str = Field(min_length=1, max_length=1000)
+    caller_name: str | None = Field(default=None, max_length=80)
+
+    @field_validator("caller_name")
+    @classmethod
+    def _n(cls, v):
+        return clean(v, 80) or None if v else None
 
     @field_validator("text")
     @classmethod
@@ -90,13 +96,21 @@ class RecallArgs(_Strict):
 
 # ---------- alerts ----------
 async def alert_owner(ctx: ToolContext, kind: str, summary: str) -> None:
-    """Internal (not a model tool). URGENT if VIP (verified contact) or 2+ contacts in 7 days."""
+    """Internal (not a model tool). URGENT if VIP (verified contact) or 2+ contacts in 7 days.
+    Always stored in the inbox. Pushed immediately unless focus mode is ON and the alert is not urgent."""
     n = repo.contacts_last_7d(ctx.db, ctx.caller.id)
     urgent = ctx.caller.trust_level == "vip" or n >= 2
     who = ctx.caller.name or "Unknown caller"
-    title = f"{'URGENT: ' if urgent else ''}Gatekeeper {kind}"
     reason = " (VIP)" if ctx.caller.trust_level == "vip" else f" ({n} contacts in 7 days)" if n >= 2 else ""
-    await ctx.notifier.send(title, f"{who}{reason}: {summary}", urgent=urgent)
+    text = f"{who}{reason}: {summary}"
+    hold = repo.get_focus(ctx.db, ctx.owner.id) and not urgent
+    alert = repo.add_alert(ctx.db, ctx.owner.id, ctx.conversation_id, ctx.caller.id, kind, text, urgent, delivered=False)
+    if hold:
+        return  # stays undelivered: goes out in the focus-end digest
+    ok = await ctx.notifier.send(f"{'URGENT: ' if urgent else ''}Gatekeeper {kind}", text, urgent=urgent,
+                                 click=f"{ctx.st.public_url.rstrip('/')}/inbox" if ctx.st.public_url else "")
+    if ok:
+        repo.mark_delivered(ctx.db, [alert.id])  # a failed push stays undelivered and is retried in the next digest
 
 
 async def calendar_down(ctx: ToolContext, wanted: str) -> dict:
@@ -168,6 +182,9 @@ async def book_meeting(ctx: ToolContext, a: BookMeetingArgs) -> dict:
 
 
 async def take_message(ctx: ToolContext, a: TakeMessageArgs) -> dict:
+    if a.caller_name:
+        repo.update_caller(ctx.db, ctx.caller.id, a.caller_name)
+        ctx.caller.name = a.caller_name
     repo.add_memory(ctx.db, "caller", "message", a.text, caller_id=ctx.caller.id)
     await alert_owner(ctx, "message", a.text[:200])
     return {"ok": True}
@@ -188,7 +205,7 @@ class Tool:
 CALLER_TOOLS: dict[str, Tool] = {t.name: t for t in [
     Tool("get_free_slots", "Find real free meeting slots. args: date_from, date_to (YYYY-MM-DD), duration_min (default 30). Returns slot_ids.", GetFreeSlotsArgs, get_free_slots),
     Tool("book_meeting", "Book one of the slots returned by get_free_slots. args: slot_id, title, caller_name, caller_email (optional).", BookMeetingArgs, book_meeting),
-    Tool("take_message", "Save a message for the owner when the caller does not want or cannot book. args: text.", TakeMessageArgs, take_message),
+    Tool("take_message", "Save a message for the owner when the caller does not want or cannot book. args: text, caller_name (if known).", TakeMessageArgs, take_message),
     Tool("recall_caller", "Look up what is known about THIS caller. args: none.", RecallArgs, recall_caller),
 ]}
 OWNER_TOOLS: dict[str, Tool] = {}  # Phase 3. Never exposed to caller sessions.

@@ -9,8 +9,9 @@ FORMAT = """Reply with ONE JSON object and nothing else, in one of two shapes:
 Speak in 1-2 short sentences, natural spoken style, no markdown, no lists, no emoji."""
 
 
-def caller_system_prompt(owner: Owner, now_local: datetime, history: dict) -> str:
-    return f"""You are Gatekeeper, the phone assistant of {owner.name}, who is in focus time and cannot take calls.
+def caller_system_prompt(owner: Owner, now_local: datetime, history: dict, focus: bool = True) -> str:
+    status = "is in focus time" if focus else "is not available right now"
+    return f"""You are Gatekeeper, the phone assistant of {owner.name}, who {status} and cannot take calls.
 Current date/time for {owner.name}: {now_local:%A %Y-%m-%d %H:%M} ({owner.timezone}).
 Your ONLY job: find out who is calling and why, then book them a meeting on {owner.name}'s calendar, or take a message.
 
@@ -44,7 +45,7 @@ def refusal_hint() -> str:
 
 
 def greeting_hint(owner: Owner) -> str:
-    return f"The call just connected. Greet the caller, say {owner.name} is in focus time, and ask who is calling and what it is about. Reply with a `say` only."
+    return f"The call just connected. Greet the caller, say {owner.name} is not available to take calls, and ask who is calling and what it is about. Reply with a `say` only."
 
 
 def silence_hint() -> str:

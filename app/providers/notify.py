@@ -11,7 +11,7 @@ class NtfyNotifier:
     def __init__(self, url: str, topic: str):
         self.url, self.topic = url.rstrip("/"), topic
 
-    async def send(self, title: str, message: str, urgent: bool = False) -> bool:
+    async def send(self, title: str, message: str, urgent: bool = False, click: str = "") -> bool:
         if not self.topic:
             log.warning("NTFY_TOPIC not set; owner alert NOT delivered: %s | %s", title, message)
             return False
@@ -21,7 +21,8 @@ class NtfyNotifier:
                 r = await c.post(f"{self.url}/{self.topic}", content=message.encode(),
                                  headers={"Title": title.encode("ascii", "ignore").decode(),
                                           "Priority": "urgent" if urgent else "default",
-                                          "Tags": "rotating_light" if urgent else "calendar"})
+                                          "Tags": "rotating_light" if urgent else "calendar",
+                                          **({"Click": click} if click else {})})
                 r.raise_for_status()
 
         try:

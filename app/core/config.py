@@ -51,6 +51,7 @@ class Settings(BaseSettings):
     # Notifications (ntfy)
     ntfy_url: str = "https://ntfy.sh"
     ntfy_topic: str = ""
+    public_url: str = ""  # where the phone can reach this server (tunnel/host); used for the tap-to-open inbox link
 
     # Owner seed (used only when no owner with this handle exists yet)
     owner_handle: str = "owner"

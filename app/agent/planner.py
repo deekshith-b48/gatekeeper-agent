@@ -37,7 +37,7 @@ class Planner:
     async def run_turn(self, ctx: ToolContext, history: list[dict], user_text: str | None, hint: str | None = None) -> TurnResult:
         """history: prior {role, content} messages (mutated: this turn is appended)."""
         t0 = time.monotonic()
-        system = prompts.caller_system_prompt(ctx.owner, ctx.now_fn().astimezone(ctx.tz), repo.caller_history(ctx.db, ctx.caller.id))
+        system = prompts.caller_system_prompt(ctx.owner, ctx.now_fn().astimezone(ctx.tz), repo.caller_history(ctx.db, ctx.caller.id), repo.get_focus(ctx.db, ctx.owner.id))
         if user_text is not None:
             history.append({"role": "user", "content": wrap_untrusted(user_text)})
         if hint:
