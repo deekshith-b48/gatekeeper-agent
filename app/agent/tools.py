@@ -230,7 +230,9 @@ async def take_message(ctx: ToolContext, a: TakeMessageArgs) -> dict:
 
 
 async def recall_caller(ctx: ToolContext, a: RecallArgs) -> dict:
-    return repo.caller_history(ctx.db, ctx.caller.id)  # this caller only, never other callers or calendar data
+    h = repo.caller_history(ctx.db, ctx.caller.id)
+    # counts only: names and notes are unverified claims from earlier calls and must never shape who the agent thinks is calling
+    return {"times_contacted": h["times_contacted"], "past_bookings": h["past_bookings"]}
 
 
 @dataclass(frozen=True)
@@ -245,7 +247,7 @@ CALLER_TOOLS: dict[str, Tool] = {t.name: t for t in [
     Tool("get_free_slots", "Find real free meeting slots. args: date_from, date_to (YYYY-MM-DD), duration_min (default 30). Returns slot_ids.", GetFreeSlotsArgs, get_free_slots),
     Tool("book_meeting", "Book one of the slots returned by get_free_slots. args: slot_id, title, caller_name, caller_email (optional).", BookMeetingArgs, book_meeting),
     Tool("take_message", "Save a message for the owner when the caller does not want or cannot book. args: text, caller_name (if known).", TakeMessageArgs, take_message),
-    Tool("recall_caller", "Look up what is known about THIS caller. args: none.", RecallArgs, recall_caller),
+    Tool("recall_caller", "How many times this caller contacted before (no identity). args: none.", RecallArgs, recall_caller),
 ]}
 OWNER_TOOLS: dict[str, Tool] = {}  # Phase 3. Never exposed to caller sessions.
 REGISTRY = {"caller": CALLER_TOOLS, "owner": OWNER_TOOLS}

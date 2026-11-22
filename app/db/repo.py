@@ -67,11 +67,12 @@ def start_conversation(db: Database, owner: Owner, contact: str, channel: str = 
         if not c:
             c = Caller(contact=contact)
         c.contact_count += 1
+        c.name = ""  # a name is only a claim made in one conversation; each new conversation asks again from scratch
         vips = {v.strip().lower() for v in owner.vip_contacts.split(",") if v.strip()}
         if contact.lower() in vips:
             c.trust_level = "vip"
-        elif c.name:
-            c.trust_level = "known" if c.trust_level != "vip" else "vip"
+        elif c.trust_level != "vip":
+            c.trust_level = "unknown"
         s.add(c)
         s.commit()
         conv = Conversation(owner_id=owner.id, caller_id=c.id, channel=channel)
@@ -176,7 +177,7 @@ def caller_history(db: Database, caller_id: str) -> dict:
         if convs:
             booked = len(s.exec(select(Booking.id).where(Booking.conversation_id.in_(convs))).all())
         return {"name": c.name or None, "times_contacted": c.contact_count,
-                "past_bookings": booked, "recent_notes": [n.value for n in notes]}
+                "past_bookings": booked, "recent_notes": [n.value for n in notes]}  # full record: owner-side use only (inbox, alerts)
 
 
 def housekeeping(db: Database) -> dict:
