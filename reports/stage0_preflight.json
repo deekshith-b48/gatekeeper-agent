@@ -1,0 +1,92 @@
+[
+ {
+  "case": "backend /healthz",
+  "status": "PASS",
+  "detail": "{'ok': True, 'llm': True, 'calendar': 'google', 'voice': False, 'tts': False, 'ntfy': True, 'whatsapp': True}",
+  "latency_s": null
+ },
+ {
+  "case": "calendar provider loaded",
+  "status": "PASS",
+  "detail": "google",
+  "latency_s": null
+ },
+ {
+  "case": "WhatsApp webhook configured",
+  "status": "PASS",
+  "detail": "TWILIO_AUTH_TOKEN + PUBLIC_URL",
+  "latency_s": null
+ },
+ {
+  "case": "LLM primary (openai/gpt-oss-120b) responds",
+  "status": "PASS",
+  "detail": "Hi there friend",
+  "latency_s": 0.9
+ },
+ {
+  "case": "LLM fallback model (openai/gpt-oss-20b) responds",
+  "status": "PASS",
+  "detail": "Hi there buddy",
+  "latency_s": 0.61
+ },
+ {
+  "case": "LLM second provider (gemini-3.5-flash-lite) responds",
+  "status": "PASS",
+  "detail": "Hello there friend",
+  "latency_s": 4.29
+ },
+ {
+  "case": "STT/TTS",
+  "status": "PASS",
+  "detail": "N/A server-side: speech runs in the caller's browser (Web Speech API); light mode has no Whisper/Piper",
+  "latency_s": null
+ },
+ {
+  "case": "calendar token valid, freebusy readable (today)",
+  "status": "PASS",
+  "detail": "1 busy block(s) in next 24h",
+  "latency_s": 0.93
+ },
+ {
+  "case": "notify channel (ntfy) delivers",
+  "status": "PASS",
+  "detail": "one test push sent",
+  "latency_s": null
+ },
+ {
+  "case": ".env: gitignored and never in history",
+  "status": "PASS",
+  "detail": "ignored=True history=none",
+  "latency_s": null
+ },
+ {
+  "case": "credentials.json: gitignored and never in history",
+  "status": "PASS",
+  "detail": "ignored=True history=none",
+  "latency_s": null
+ },
+ {
+  "case": "token.json: gitignored and never in history",
+  "status": "PASS",
+  "detail": "ignored=True history=none",
+  "latency_s": null
+ },
+ {
+  "case": "data/gatekeeper.db: gitignored and never in history",
+  "status": "PASS",
+  "detail": "ignored=True history=none",
+  "latency_s": null
+ },
+ {
+  "case": "no *.db / token / credentials tracked",
+  "status": "PASS",
+  "detail": "",
+  "latency_s": null
+ },
+ {
+  "case": "no live secret value inside any tracked file",
+  "status": "PASS",
+  "detail": "",
+  "latency_s": null
+ }
+]
